@@ -39,7 +39,8 @@
     }
     #controls button,
     #controls input,
-    #controls label {
+    #controls label,
+    #controls select {
       font-size: 1em;
       padding: 8px;
       border: none;
@@ -54,7 +55,7 @@
       background: #ccc;
       cursor: not-allowed;
     }
-    #controls input[type="number"] {
+    #controls input[type="number"], #controls select {
       width: 70px;
       text-align: center;
     }
@@ -67,9 +68,10 @@
       border: 1px solid #ccc;
       padding: 10px;
       border-radius: 4px;
-      z-index: 110;
+      z-index: 200;
       box-shadow: 0 2px 6px rgba(0,0,0,0.2);
       font-size: 0.9em;
+      display: none; /* Hidden by default */
     }
     #implant-menu select,
     #implant-menu button {
@@ -99,7 +101,8 @@
       }
       #controls button,
       #controls input,
-      #controls label {
+      #controls label,
+      #controls select {
         font-size: 0.9em;
         padding: 6px;
       }
@@ -122,9 +125,17 @@
     <button id="prev-page" disabled>Prev Page</button>
     <button id="next-page" disabled>Next Page</button>
 
-    <!-- Mode Toggles -->
-    <button id="ruler-btn">Ruler Mode: Off</button>
-    <button id="implant-btn">Implant Mode: Off</button>
+    <!-- Main Mode Dropdown -->
+    <label for="mode-select">Mode:</label>
+    <select id="mode-select">
+      <option value="ruler">Ruler</option>
+      <option value="implant">Implant</option>
+    </select>
+
+    <!-- Toggle Implant Menu Button (only relevant in Implant Mode) -->
+    <button id="toggle-implant-menu" style="display:none;">Open Implant Menu</button>
+
+    <!-- Clear Implants -->
     <button id="clear-implants">Clear Implant(s)</button>
 
     <!-- Zoom Controls -->
@@ -142,7 +153,7 @@
     <span id="measurement-result"></span>
   </div>
 
-  <!-- Implant Menu (Visible in Implant Mode) -->
+  <!-- Implant Menu (Initial state hidden) -->
   <div id="implant-menu">
     <p>Pinch & Twist near the implant to rotate it.</p>
     <label for="implant-select">Select Implant:</label>
@@ -160,15 +171,15 @@
   <!-- Include pdf.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.7.107/pdf.min.js"></script>
   <script>
-    /*------------------------------
-      PDF.js Setup
-    ------------------------------*/
+    /***********************
+     * PDF.js Setup
+     ***********************/
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.7.107/pdf.worker.min.js';
 
-    /*------------------------------
-      Implant List & Preloading Images
-    ------------------------------*/
+    /***********************
+     * Implant List & Preloading Images
+     ***********************/
     const implantList = [
       { src: 'res/3.3x10mm.svg',    name: '3.3 x 10 mm' },
       { src: 'res/3.3x11.5mm.svg',  name: '3.3 x 11.5 mm' },
@@ -190,6 +201,7 @@
       { src: 'res/5x16mm.svg',      name: '5 x 16 mm' }
     ];
 
+    // Object to store preloaded images and their dimensions.
     const implantImages = {};
 
     function parseImplantDimensions(src) {
@@ -219,7 +231,7 @@
       };
     });
 
-    // Populate the dropdown.
+    // Populate implant dropdown in the implant menu.
     const implantSelect = document.getElementById('implant-select');
     implantList.forEach(item => {
       const option = document.createElement('option');
@@ -232,14 +244,14 @@
       currentImplantSrc = this.value;
     });
 
-    /*------------------------------
-      Global Variables & DOM References
-    ------------------------------*/
+    /***********************
+     * Global Variables & DOM References
+     ***********************/
     const fileInput = document.getElementById('file-input');
     const prevPageBtn = document.getElementById('prev-page');
     const nextPageBtn = document.getElementById('next-page');
-    const rulerBtn = document.getElementById('ruler-btn');
-    const implantBtn = document.getElementById('implant-btn');
+    const modeSelect = document.getElementById('mode-select');
+    const toggleImplantMenuBtn = document.getElementById('toggle-implant-menu');
     const clearImplantsBtn = document.getElementById('clear-implants');
     const zoomInBtn = document.getElementById('zoom-in');
     const zoomOutBtn = document.getElementById('zoom-out');
@@ -249,7 +261,6 @@
     const measurementResult = document.getElementById('measurement-result');
     const pdfContainer = document.getElementById('pdf-container');
     const implantMenu = document.getElementById('implant-menu');
-    const addImplantBtn = document.getElementById('add-implant');
 
     const pdfCanvas = document.getElementById('pdf-canvas');
     const implantCanvas = document.getElementById('implant-canvas');
@@ -271,7 +282,7 @@
     let measurementPoints = [];
 
     let implantMode = false;
-    let implantObjects = []; // Each: { pdfX, pdfY, rotation, src }
+    let implantObjects = [];  // Each implant: { pdfX, pdfY, rotation, src }
     let selectedImplant = null;
     let dragOffset = { x: 0, y: 0 };
 
@@ -286,9 +297,72 @@
     let initialPinchDistance = 0;
     let initialScale = scale;
 
-    /*------------------------------
-      PDF File Loading & Rendering
-    ------------------------------*/
+    /***********************
+     * Mode Selection
+     ***********************/
+    const modeSelectElem = document.getElementById('mode-select');
+    modeSelectElem.addEventListener('change', function() {
+      const mode = modeSelectElem.value;
+      if (mode === 'ruler') {
+        measurementMode = true;
+        implantMode = false;
+        // Attach ruler events and detach implant events.
+        attachRulerEvents();
+        detachImplantEvents();
+        // Hide implant menu and toggle button.
+        implantMenu.style.display = 'none';
+        toggleImplantMenuBtn.style.display = 'none';
+      } else if (mode === 'implant') {
+        measurementMode = false;
+        implantMode = true;
+        // Attach implant events and detach ruler events.
+        attachImplantEvents();
+        detachRulerEvents();
+        // Show the "Toggle Implant Menu" button.
+        toggleImplantMenuBtn.style.display = 'inline-block';
+      }
+    });
+    // Set initial mode to Ruler.
+    modeSelectElem.value = 'ruler';
+    attachRulerEvents();
+
+    function attachRulerEvents() {
+      overlayCanvas.style.pointerEvents = 'auto';
+      overlayCanvas.addEventListener('click', onOverlayClick);
+      overlayCanvas.addEventListener('touchend', onOverlayTouch);
+    }
+    function detachRulerEvents() {
+      overlayCanvas.style.pointerEvents = 'none';
+      overlayCanvas.removeEventListener('click', onOverlayClick);
+      overlayCanvas.removeEventListener('touchend', onOverlayTouch);
+    }
+    function attachImplantEvents() {
+      implantCanvas.style.pointerEvents = 'auto';
+      implantCanvas.addEventListener('click', onImplantClick);
+      implantCanvas.addEventListener('mousedown', onImplantMouseDown);
+      implantCanvas.addEventListener('touchstart', onImplantTouchStart);
+    }
+    function detachImplantEvents() {
+      implantCanvas.style.pointerEvents = 'none';
+      implantCanvas.removeEventListener('click', onImplantClick);
+      implantCanvas.removeEventListener('mousedown', onImplantMouseDown);
+      implantCanvas.removeEventListener('touchstart', onImplantTouchStart);
+    }
+
+    // Toggle Implant Menu manually.
+    toggleImplantMenuBtn.addEventListener('click', function() {
+      if (implantMenu.style.display === 'none' || implantMenu.style.display === '') {
+        implantMenu.style.display = 'block';
+        toggleImplantMenuBtn.textContent = "Close Implant Menu";
+      } else {
+        implantMenu.style.display = 'none';
+        toggleImplantMenuBtn.textContent = "Open Implant Menu";
+      }
+    });
+
+    /***********************
+     * PDF File Loading & Rendering
+     ***********************/
     fileInput.addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (!file || file.type !== 'application/pdf') {
@@ -341,9 +415,9 @@
       });
     }
 
-    /*------------------------------
-      Page Navigation & Zoom Controls
-    ------------------------------*/
+    /***********************
+     * Page Navigation & Zoom Controls
+     ***********************/
     prevPageBtn.addEventListener('click', function() {
       if (currentPageNum <= 1) return;
       currentPageNum--;
@@ -382,28 +456,9 @@
       renderPage();
     });
 
-    /*------------------------------
-      Ruler Mode (Retained)
-    ------------------------------*/
-    rulerBtn.addEventListener('click', function() {
-      measurementMode = !measurementMode;
-      if (measurementMode) {
-        rulerBtn.textContent = "Ruler Mode: On";
-        measurementPoints = [];
-        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-        measurementResult.textContent = "";
-        overlayCanvas.style.pointerEvents = 'auto';
-        overlayCanvas.addEventListener('click', onOverlayClick);
-        overlayCanvas.addEventListener('touchend', onOverlayTouch);
-      } else {
-        rulerBtn.textContent = "Ruler Mode: Off";
-        overlayCanvas.style.pointerEvents = 'none';
-        overlayCanvas.removeEventListener('click', onOverlayClick);
-        overlayCanvas.removeEventListener('touchend', onOverlayTouch);
-        measurementPoints = [];
-        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-      }
-    });
+    /***********************
+     * Ruler Mode (Retained)
+     ***********************/
     function onOverlayClick(e) {
       const rect = overlayCanvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -455,34 +510,9 @@
       overlayCtx.fill();
     }
 
-    /*------------------------------
-      Implant Mode
-    ------------------------------*/
-    implantBtn.addEventListener('click', function() {
-      implantMode = !implantMode;
-      if (implantMode) {
-        implantBtn.textContent = "Implant Mode: On";
-        implantCanvas.style.pointerEvents = 'auto';
-        implantMenu.style.display = 'block';
-        implantCanvas.addEventListener('click', onImplantClick);
-        implantCanvas.addEventListener('mousedown', onImplantMouseDown);
-        implantCanvas.addEventListener('touchstart', onImplantTouchStart);
-      } else {
-        implantBtn.textContent = "Implant Mode: Off";
-        implantCanvas.style.pointerEvents = 'none';
-        implantMenu.style.display = 'none';
-        implantCanvas.removeEventListener('click', onImplantClick);
-        implantCanvas.removeEventListener('mousedown', onImplantMouseDown);
-        implantCanvas.removeEventListener('touchstart', onImplantTouchStart);
-        selectedImplant = null;
-      }
-    });
-
-    addImplantBtn.addEventListener('click', function() {
-      addingImplant = true;
-      alert("Tap on the PDF area (in Implant Mode) to add a new implant.");
-    });
-
+    /***********************
+     * Implant Mode
+     ***********************/
     function onImplantClick(e) {
       const rect = implantCanvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -626,9 +656,6 @@
       e.preventDefault();
     }
 
-    /*------------------------------
-      Redraw All Implants
-    ------------------------------*/
     function redrawImplants() {
       implantCtx.clearRect(0, 0, implantCanvas.width, implantCanvas.height);
       implantObjects.forEach(function(implant) {
@@ -671,9 +698,9 @@
       redrawImplants();
     });
 
-    /*------------------------------
-      Pinch-to-Zoom for PDF (Retained)
-    ------------------------------*/
+    /***********************
+     * Pinch-to-Zoom for PDF
+     ***********************/
     function getDistance(touch1, touch2) {
       const dx = touch2.clientX - touch1.clientX;
       const dy = touch2.clientY - touch1.clientY;
