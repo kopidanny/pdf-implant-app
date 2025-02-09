@@ -116,7 +116,7 @@
 
   <header>
     <h1>PDF Implant App</h1>
-    <p>Place implants on your PDF and adjust their rotation with pinch-twist gestures.</p>
+    <p>Choose a mode below. In Ruler mode you can measure distances. In Implant mode you can place and adjust implants on your PDF.</p>
   </header>
 
   <div id="controls">
@@ -125,14 +125,14 @@
     <button id="prev-page" disabled>Prev Page</button>
     <button id="next-page" disabled>Next Page</button>
 
-    <!-- Main Mode Dropdown -->
+    <!-- Mode Dropdown -->
     <label for="mode-select">Mode:</label>
     <select id="mode-select">
       <option value="ruler">Ruler</option>
       <option value="implant">Implant</option>
     </select>
 
-    <!-- Toggle Implant Menu Button (only relevant in Implant Mode) -->
+    <!-- Toggle Implant Menu (only shown when Implant mode is active) -->
     <button id="toggle-implant-menu" style="display:none;">Open Implant Menu</button>
 
     <!-- Clear Implants -->
@@ -153,7 +153,7 @@
     <span id="measurement-result"></span>
   </div>
 
-  <!-- Implant Menu (Initial state hidden) -->
+  <!-- Implant Menu (Initially hidden) -->
   <div id="implant-menu">
     <p>Pinch & Twist near the implant to rotate it.</p>
     <label for="implant-select">Select Implant:</label>
@@ -201,7 +201,7 @@
       { src: 'res/5x16mm.svg',      name: '5 x 16 mm' }
     ];
 
-    // Object to store preloaded images and their dimensions.
+    // Object to hold preloaded implant images and their parsed dimensions.
     const implantImages = {};
 
     function parseImplantDimensions(src) {
@@ -231,7 +231,7 @@
       };
     });
 
-    // Populate implant dropdown in the implant menu.
+    // Populate the implant dropdown in the implant menu.
     const implantSelect = document.getElementById('implant-select');
     implantList.forEach(item => {
       const option = document.createElement('option');
@@ -250,7 +250,7 @@
     const fileInput = document.getElementById('file-input');
     const prevPageBtn = document.getElementById('prev-page');
     const nextPageBtn = document.getElementById('next-page');
-    const modeSelect = document.getElementById('mode-select');
+    const modeSelectElem = document.getElementById('mode-select');
     const toggleImplantMenuBtn = document.getElementById('toggle-implant-menu');
     const clearImplantsBtn = document.getElementById('clear-implants');
     const zoomInBtn = document.getElementById('zoom-in');
@@ -298,27 +298,22 @@
     let initialScale = scale;
 
     /***********************
-     * Mode Selection
+     * Mode Selection (Dropdown)
      ***********************/
-    const modeSelectElem = document.getElementById('mode-select');
     modeSelectElem.addEventListener('change', function() {
       const mode = modeSelectElem.value;
       if (mode === 'ruler') {
         measurementMode = true;
         implantMode = false;
-        // Attach ruler events and detach implant events.
         attachRulerEvents();
         detachImplantEvents();
-        // Hide implant menu and toggle button.
         implantMenu.style.display = 'none';
         toggleImplantMenuBtn.style.display = 'none';
       } else if (mode === 'implant') {
         measurementMode = false;
         implantMode = true;
-        // Attach implant events and detach ruler events.
         attachImplantEvents();
         detachRulerEvents();
-        // Show the "Toggle Implant Menu" button.
         toggleImplantMenuBtn.style.display = 'inline-block';
       }
     });
@@ -528,7 +523,6 @@
         }
       }
     }
-
     function findImplantAt(canvasX, canvasY) {
       const { pixelWidth, pixelHeight } = getImplantPixelDimensions({ src: currentImplantSrc });
       const halfDiagonal = Math.sqrt((pixelWidth / 2) ** 2 + (pixelHeight / 2) ** 2);
@@ -544,14 +538,12 @@
       }
       return null;
     }
-
     function placeImplantAt(canvasX, canvasY) {
       const pdfX = canvasX / scale;
       const pdfY = canvasY / scale;
       implantObjects.push({ pdfX, pdfY, rotation: 0, src: currentImplantSrc });
       redrawImplants();
     }
-
     function onImplantMouseDown(e) {
       const rect = implantCanvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -582,7 +574,6 @@
       window.removeEventListener('mousemove', onImplantMouseMove);
       window.removeEventListener('mouseup', onImplantMouseUp);
     }
-
     function onImplantTouchStart(e) {
       const rect = implantCanvas.getBoundingClientRect();
       if (e.touches.length === 2) {
@@ -655,7 +646,6 @@
       }
       e.preventDefault();
     }
-
     function redrawImplants() {
       implantCtx.clearRect(0, 0, implantCanvas.width, implantCanvas.height);
       implantObjects.forEach(function(implant) {
@@ -672,7 +662,6 @@
         implantCtx.restore();
       });
     }
-
     function getImplantPixelDimensions(implant) {
       let pixelWidth, pixelHeight;
       const data = implantImages[implant.src];
@@ -692,7 +681,6 @@
       }
       return { pixelWidth, pixelHeight };
     }
-
     clearImplantsBtn.addEventListener('click', function() {
       implantObjects = [];
       redrawImplants();
