@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <!-- Ensures proper scaling on mobile devices -->
+  <!-- Mobile-friendly viewport -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>PDF Implant App</title>
   <style>
@@ -145,7 +145,7 @@
       <option value="implant">Implant</option>
     </select>
 
-    <!-- Toggle Implant Menu Button (only shown in Implant mode) -->
+    <!-- Toggle Implant Menu Button (shown only in Implant mode) -->
     <button id="toggle-implant-menu" style="display:none;">Open Implant Menu</button>
 
     <!-- Clear Implants -->
@@ -230,7 +230,7 @@
 
     implantList.forEach(item => {
       const img = new Image();
-      // Uncomment if needed:
+      // Uncomment if necessary:
       // img.crossOrigin = "anonymous";
       img.src = item.src;
       img.onload = function() {
@@ -243,7 +243,7 @@
       };
     });
 
-    // Populate the implant dropdown in the implant menu.
+    // Populate the implant dropdown.
     const implantSelect = document.getElementById('implant-select');
     implantList.forEach(item => {
       const option = document.createElement('option');
@@ -320,6 +320,7 @@
         attachRulerEvents();
         detachImplantEvents();
         overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        measurementPoints = [];
         implantMenu.style.display = 'none';
         toggleImplantMenuBtn.style.display = 'none';
       } else if (mode === 'implant') {
@@ -466,7 +467,7 @@
     });
 
     /***********************
-     * Ruler Mode (Retained with Measurement Text)
+     * Ruler Mode
      ***********************/
     function onOverlayClick(e) {
       const rect = overlayCanvas.getBoundingClientRect();
@@ -483,7 +484,12 @@
       e.preventDefault();
     }
     function processMeasurementPoint(x, y) {
-      if (pinchActive) return;
+      // If a measurement is already complete, the next tap clears it.
+      if (measurementPoints.length >= 2) {
+        measurementPoints = [];
+        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        return;
+      }
       measurementPoints.push({ x, y });
       if (measurementPoints.length === 1) {
         overlayCtx.fillStyle = "red";
@@ -493,7 +499,7 @@
       }
       if (measurementPoints.length === 2) {
         drawMeasurementLine(measurementPoints[0], measurementPoints[1]);
-        measurementPoints = [];
+        // Do not clear measurementPoints here, so they remain until next tap clears them.
       }
     }
     function drawMeasurementLine(p1, p2) {
@@ -512,7 +518,7 @@
       overlayCtx.beginPath();
       overlayCtx.arc(p2.x, p2.y, 5, 0, 2 * Math.PI);
       overlayCtx.fill();
-      // Calculate and draw the distance near the midpoint
+      // Calculate distance and display near midpoint
       const dx = p2.x - p1.x;
       const dy = p2.y - p1.y;
       const distanceInPixels = Math.sqrt(dx * dx + dy * dy);
@@ -540,6 +546,9 @@
         const hit = findImplantAt(x, y);
         if (hit) {
           selectedImplant = hit.implant;
+        } else {
+          // If no implant was hit, deselect any currently selected implant.
+          selectedImplant = null;
         }
       }
     }
@@ -568,8 +577,9 @@
       const rect = implantCanvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      if (implantObjects.length > 0) {
-        selectedImplant = implantObjects[implantObjects.length - 1];
+      const hit = findImplantAt(x, y);
+      if (hit) {
+        selectedImplant = hit.implant;
         const centerX = selectedImplant.pdfX * scale;
         const centerY = selectedImplant.pdfY * scale;
         dragOffset.x = x - centerX;
@@ -585,7 +595,7 @@
       const y = e.clientY - rect.top;
       const targetCenterX = (x - dragOffset.x) / scale;
       const targetCenterY = (y - dragOffset.y) / scale;
-      // Reduce sensitivity by moving only a fraction (e.g., 50%) of the delta
+      // Use a movement factor (0.5) to reduce sensitivity.
       const movementFactor = 0.5;
       selectedImplant.pdfX = selectedImplant.pdfX + (targetCenterX - selectedImplant.pdfX) * movementFactor;
       selectedImplant.pdfY = selectedImplant.pdfY + (targetCenterY - selectedImplant.pdfY) * movementFactor;
@@ -604,8 +614,12 @@
         const dx = touch2.clientX - touch1.clientX;
         const dy = touch2.clientY - touch1.clientY;
         initialTwistAngle = Math.atan2(dy, dx);
-        if (!selectedImplant && implantObjects.length > 0) {
-          selectedImplant = implantObjects[implantObjects.length - 1];
+        const hit = findImplantAt(
+          (touch1.clientX + touch2.clientX) / 2 - rect.left,
+          (touch1.clientY + touch2.clientY) / 2 - rect.top
+        );
+        if (hit) {
+          selectedImplant = hit.implant;
         }
         initialRotation = selectedImplant ? (selectedImplant.rotation || 0) : 0;
         rotationGestureActive = true;
@@ -618,16 +632,20 @@
           placeImplantAt(x, y);
           selectedImplant = implantObjects[implantObjects.length - 1];
           addingImplant = false;
-        } else if (implantObjects.length > 0) {
-          selectedImplant = implantObjects[implantObjects.length - 1];
-          const centerX = selectedImplant.pdfX * scale;
-          const centerY = selectedImplant.pdfY * scale;
-          dragOffset.x = x - centerX;
-          dragOffset.y = y - centerY;
-          implantCanvas.addEventListener('touchmove', onImplantTouchMove);
-          implantCanvas.addEventListener('touchend', onImplantTouchEnd);
         } else {
-          placeImplantAt(x, y);
+          const hit = findImplantAt(x, y);
+          if (hit) {
+            selectedImplant = hit.implant;
+            const centerX = selectedImplant.pdfX * scale;
+            const centerY = selectedImplant.pdfY * scale;
+            dragOffset.x = x - centerX;
+            dragOffset.y = y - centerY;
+            implantCanvas.addEventListener('touchmove', onImplantTouchMove);
+            implantCanvas.addEventListener('touchend', onImplantTouchEnd);
+          } else {
+            // If touch is not on any implant, deselect.
+            selectedImplant = null;
+          }
         }
         e.preventDefault();
       }
