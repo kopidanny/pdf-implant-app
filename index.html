@@ -71,7 +71,7 @@
       z-index: 200;
       box-shadow: 0 2px 6px rgba(0,0,0,0.2);
       font-size: 0.9em;
-      display: none; /* Hidden by default */
+      display: none;
     }
     #implant-menu select,
     #implant-menu button {
@@ -145,7 +145,7 @@
       <option value="implant">Implant</option>
     </select>
 
-    <!-- Toggle Implant Menu Button (shown only in Implant mode) -->
+    <!-- Toggle Implant Menu Button (only shown in Implant mode) -->
     <button id="toggle-implant-menu" style="display:none;">Open Implant Menu</button>
 
     <!-- Clear Implants -->
@@ -171,7 +171,8 @@
     <p>Pinch & Twist near the implant to rotate it.</p>
     <label for="implant-select">Select Implant:</label>
     <select id="implant-select"></select>
-    <button id="add-implant">Add Another Implant</button>
+    <!-- Instead of waiting for a tap, the button now adds a new implant at the center -->
+    <button id="add-implant">Add Implant at Center</button>
   </div>
 
   <!-- PDF & Canvas Container -->
@@ -230,7 +231,7 @@
 
     implantList.forEach(item => {
       const img = new Image();
-      // Uncomment if necessary:
+      // Uncomment if needed:
       // img.crossOrigin = "anonymous";
       img.src = item.src;
       img.onload = function() {
@@ -302,7 +303,9 @@
     let initialTwistAngle = 0;
     let initialRotation = 0;
 
-    let addingImplant = false;
+    // We remove the "addingImplant" flag from touch/mouse handlers.
+    // Instead, the "Add Implant" button will immediately add an implant at center.
+
     let calibrationFactor = parseFloat(calibrationInput.value) || 28.346;
 
     let pinchActive = false;
@@ -368,6 +371,15 @@
         implantMenu.style.display = 'none';
         toggleImplantMenuBtn.textContent = "Open Implant Menu";
       }
+    });
+
+    // When "Add Implant" is clicked, immediately add a new implant at the center.
+    document.getElementById('add-implant').addEventListener('click', function() {
+      // Calculate center coordinates from the implant canvas.
+      const centerX = implantCanvas.width / 2;
+      const centerY = implantCanvas.height / 2;
+      placeImplantAt(centerX, centerY);
+      selectedImplant = implantObjects[implantObjects.length - 1];
     });
 
     /***********************
@@ -484,7 +496,7 @@
       e.preventDefault();
     }
     function processMeasurementPoint(x, y) {
-      // If a measurement is already complete, the next tap clears it.
+      // If there are already two points, clear and start new measurement.
       if (measurementPoints.length >= 2) {
         measurementPoints = [];
         overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
@@ -499,7 +511,6 @@
       }
       if (measurementPoints.length === 2) {
         drawMeasurementLine(measurementPoints[0], measurementPoints[1]);
-        // Do not clear measurementPoints here, so they remain until next tap clears them.
       }
     }
     function drawMeasurementLine(p1, p2) {
@@ -518,7 +529,7 @@
       overlayCtx.beginPath();
       overlayCtx.arc(p2.x, p2.y, 5, 0, 2 * Math.PI);
       overlayCtx.fill();
-      // Calculate distance and display near midpoint
+      // Calculate and display distance
       const dx = p2.x - p1.x;
       const dy = p2.y - p1.y;
       const distanceInPixels = Math.sqrt(dx * dx + dy * dy);
@@ -538,18 +549,13 @@
       const rect = implantCanvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      if (addingImplant) {
-        placeImplantAt(x, y);
-        selectedImplant = implantObjects[implantObjects.length - 1];
-        addingImplant = false;
+      // In implant mode, a tap on an implant selects it;
+      // tapping outside of any implant deselects.
+      const hit = findImplantAt(x, y);
+      if (hit) {
+        selectedImplant = hit.implant;
       } else {
-        const hit = findImplantAt(x, y);
-        if (hit) {
-          selectedImplant = hit.implant;
-        } else {
-          // If no implant was hit, deselect any currently selected implant.
-          selectedImplant = null;
-        }
+        selectedImplant = null;
       }
     }
     function findImplantAt(canvasX, canvasY) {
@@ -595,7 +601,7 @@
       const y = e.clientY - rect.top;
       const targetCenterX = (x - dragOffset.x) / scale;
       const targetCenterY = (y - dragOffset.y) / scale;
-      // Use a movement factor (0.5) to reduce sensitivity.
+      // Apply a movement factor to reduce sensitivity.
       const movementFactor = 0.5;
       selectedImplant.pdfX = selectedImplant.pdfX + (targetCenterX - selectedImplant.pdfX) * movementFactor;
       selectedImplant.pdfY = selectedImplant.pdfY + (targetCenterY - selectedImplant.pdfY) * movementFactor;
@@ -614,10 +620,10 @@
         const dx = touch2.clientX - touch1.clientX;
         const dy = touch2.clientY - touch1.clientY;
         initialTwistAngle = Math.atan2(dy, dx);
-        const hit = findImplantAt(
-          (touch1.clientX + touch2.clientX) / 2 - rect.left,
-          (touch1.clientY + touch2.clientY) / 2 - rect.top
-        );
+        // Use the midpoint of the two touches for hit testing.
+        const midX = ((touch1.clientX + touch2.clientX) / 2) - rect.left;
+        const midY = ((touch1.clientY + touch2.clientY) / 2) - rect.top;
+        const hit = findImplantAt(midX, midY);
         if (hit) {
           selectedImplant = hit.implant;
         }
@@ -628,24 +634,17 @@
         const touch = e.touches[0];
         const x = touch.clientX - rect.left;
         const y = touch.clientY - rect.top;
-        if (addingImplant) {
-          placeImplantAt(x, y);
-          selectedImplant = implantObjects[implantObjects.length - 1];
-          addingImplant = false;
+        const hit = findImplantAt(x, y);
+        if (hit) {
+          selectedImplant = hit.implant;
+          const centerX = selectedImplant.pdfX * scale;
+          const centerY = selectedImplant.pdfY * scale;
+          dragOffset.x = x - centerX;
+          dragOffset.y = y - centerY;
+          implantCanvas.addEventListener('touchmove', onImplantTouchMove);
+          implantCanvas.addEventListener('touchend', onImplantTouchEnd);
         } else {
-          const hit = findImplantAt(x, y);
-          if (hit) {
-            selectedImplant = hit.implant;
-            const centerX = selectedImplant.pdfX * scale;
-            const centerY = selectedImplant.pdfY * scale;
-            dragOffset.x = x - centerX;
-            dragOffset.y = y - centerY;
-            implantCanvas.addEventListener('touchmove', onImplantTouchMove);
-            implantCanvas.addEventListener('touchend', onImplantTouchEnd);
-          } else {
-            // If touch is not on any implant, deselect.
-            selectedImplant = null;
-          }
+          selectedImplant = null;
         }
         e.preventDefault();
       }
