@@ -90,9 +90,22 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
       max-width: 100%;
     }
-    /* Canvas Styles */
-    canvas {
-      display: block;
+    /* Canvas Styles with Explicit z-index */
+    #pdf-canvas {
+      position: relative;
+      z-index: 1;
+    }
+    #implant-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 2;
+    }
+    #overlay-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 3;
     }
     /* Responsive adjustments */
     @media (max-width: 480px) {
@@ -116,7 +129,7 @@
 
   <header>
     <h1>PDF Implant App</h1>
-    <p>Choose a mode below. In Ruler mode you can measure distances. In Implant mode you can place and adjust implants on your PDF.</p>
+    <p>Choose a mode below. In Ruler mode, tap to measure; in Implant mode, place and adjust implants.</p>
   </header>
 
   <div id="controls">
@@ -132,7 +145,7 @@
       <option value="implant">Implant</option>
     </select>
 
-    <!-- Toggle Implant Menu (only shown when Implant mode is active) -->
+    <!-- Toggle Implant Menu Button (only shown when Implant mode is active) -->
     <button id="toggle-implant-menu" style="display:none;">Open Implant Menu</button>
 
     <!-- Clear Implants -->
@@ -201,7 +214,6 @@
       { src: 'res/5x16mm.svg',      name: '5 x 16 mm' }
     ];
 
-    // Object to hold preloaded implant images and their parsed dimensions.
     const implantImages = {};
 
     function parseImplantDimensions(src) {
@@ -245,7 +257,7 @@
     });
 
     /***********************
-     * Global Variables & DOM References
+     * Global DOM References & Variables
      ***********************/
     const fileInput = document.getElementById('file-input');
     const prevPageBtn = document.getElementById('prev-page');
@@ -307,6 +319,7 @@
         implantMode = false;
         attachRulerEvents();
         detachImplantEvents();
+        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
         implantMenu.style.display = 'none';
         toggleImplantMenuBtn.style.display = 'none';
       } else if (mode === 'implant') {
@@ -328,6 +341,7 @@
     }
     function detachRulerEvents() {
       overlayCanvas.style.pointerEvents = 'none';
+      overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
       overlayCanvas.removeEventListener('click', onOverlayClick);
       overlayCanvas.removeEventListener('touchend', onOverlayTouch);
     }
