@@ -71,7 +71,7 @@
       z-index: 200;
       box-shadow: 0 2px 6px rgba(0,0,0,0.2);
       font-size: 0.9em;
-      display: none;
+      display: none; /* Hidden by default */
     }
     #implant-menu select,
     #implant-menu button {
@@ -168,10 +168,9 @@
 
   <!-- Implant Menu (Initially hidden) -->
   <div id="implant-menu">
-    <p>Pinch & Twist near the implant to rotate it.</p>
+    <p>Pinch & Twist near an implant to rotate it.</p>
     <label for="implant-select">Select Implant:</label>
     <select id="implant-select"></select>
-    <!-- Instead of waiting for a tap, the button now adds a new implant at the center -->
     <button id="add-implant">Add Implant at Center</button>
   </div>
 
@@ -244,7 +243,7 @@
       };
     });
 
-    // Populate the implant dropdown.
+    // Populate the implant dropdown in the implant menu.
     const implantSelect = document.getElementById('implant-select');
     implantList.forEach(item => {
       const option = document.createElement('option');
@@ -258,7 +257,7 @@
     });
 
     /***********************
-     * Global DOM References & Variables
+     * Global Variables & DOM References
      ***********************/
     const fileInput = document.getElementById('file-input');
     const prevPageBtn = document.getElementById('prev-page');
@@ -303,9 +302,8 @@
     let initialTwistAngle = 0;
     let initialRotation = 0;
 
-    // We remove the "addingImplant" flag from touch/mouse handlers.
-    // Instead, the "Add Implant" button will immediately add an implant at center.
-
+    // The "Add Implant" button now immediately adds an implant at the center.
+    // We no longer use a flag for adding implants via canvas tap.
     let calibrationFactor = parseFloat(calibrationInput.value) || 28.346;
 
     let pinchActive = false;
@@ -373,12 +371,12 @@
       }
     });
 
-    // When "Add Implant" is clicked, immediately add a new implant at the center.
+    // "Add Implant" button adds a new implant at the center.
     document.getElementById('add-implant').addEventListener('click', function() {
-      // Calculate center coordinates from the implant canvas.
       const centerX = implantCanvas.width / 2;
       const centerY = implantCanvas.height / 2;
       placeImplantAt(centerX, centerY);
+      // Optionally, select the newly added implant for further adjustments.
       selectedImplant = implantObjects[implantObjects.length - 1];
     });
 
@@ -496,7 +494,7 @@
       e.preventDefault();
     }
     function processMeasurementPoint(x, y) {
-      // If there are already two points, clear and start new measurement.
+      // If there are already two points, the next tap clears the measurement.
       if (measurementPoints.length >= 2) {
         measurementPoints = [];
         overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
@@ -529,7 +527,7 @@
       overlayCtx.beginPath();
       overlayCtx.arc(p2.x, p2.y, 5, 0, 2 * Math.PI);
       overlayCtx.fill();
-      // Calculate and display distance
+      // Display the calculated distance near the midpoint.
       const dx = p2.x - p1.x;
       const dy = p2.y - p1.y;
       const distanceInPixels = Math.sqrt(dx * dx + dy * dy);
@@ -549,8 +547,7 @@
       const rect = implantCanvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      // In implant mode, a tap on an implant selects it;
-      // tapping outside of any implant deselects.
+      // Check if an implant is hit; if yes, select it; if not, deselect.
       const hit = findImplantAt(x, y);
       if (hit) {
         selectedImplant = hit.implant;
@@ -599,12 +596,10 @@
       const rect = implantCanvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      const targetCenterX = (x - dragOffset.x) / scale;
-      const targetCenterY = (y - dragOffset.y) / scale;
-      // Apply a movement factor to reduce sensitivity.
-      const movementFactor = 0.5;
-      selectedImplant.pdfX = selectedImplant.pdfX + (targetCenterX - selectedImplant.pdfX) * movementFactor;
-      selectedImplant.pdfY = selectedImplant.pdfY + (targetCenterY - selectedImplant.pdfY) * movementFactor;
+      const newCenterX = (x - dragOffset.x) / scale;
+      const newCenterY = (y - dragOffset.y) / scale;
+      selectedImplant.pdfX = newCenterX;
+      selectedImplant.pdfY = newCenterY;
       redrawImplants();
     }
     function onImplantMouseUp(e) {
@@ -620,7 +615,6 @@
         const dx = touch2.clientX - touch1.clientX;
         const dy = touch2.clientY - touch1.clientY;
         initialTwistAngle = Math.atan2(dy, dx);
-        // Use the midpoint of the two touches for hit testing.
         const midX = ((touch1.clientX + touch2.clientX) / 2) - rect.left;
         const midY = ((touch1.clientY + touch2.clientY) / 2) - rect.top;
         const hit = findImplantAt(midX, midY);
@@ -666,11 +660,10 @@
         const rect = implantCanvas.getBoundingClientRect();
         const x = touch.clientX - rect.left;
         const y = touch.clientY - rect.top;
-        const targetCenterX = (x - dragOffset.x) / scale;
-        const targetCenterY = (y - dragOffset.y) / scale;
-        const movementFactor = 0.5;
-        selectedImplant.pdfX = selectedImplant.pdfX + (targetCenterX - selectedImplant.pdfX) * movementFactor;
-        selectedImplant.pdfY = selectedImplant.pdfY + (targetCenterY - selectedImplant.pdfY) * movementFactor;
+        const newCenterX = (x - dragOffset.x) / scale;
+        const newCenterY = (y - dragOffset.y) / scale;
+        selectedImplant.pdfX = newCenterX;
+        selectedImplant.pdfY = newCenterY;
         redrawImplants();
         e.preventDefault();
       }
