@@ -145,7 +145,7 @@
       <option value="implant">Implant</option>
     </select>
 
-    <!-- Toggle Implant Menu Button (only shown when Implant mode is active) -->
+    <!-- Toggle Implant Menu Button (only shown in Implant mode) -->
     <button id="toggle-implant-menu" style="display:none;">Open Implant Menu</button>
 
     <!-- Clear Implants -->
@@ -466,7 +466,7 @@
     });
 
     /***********************
-     * Ruler Mode (Retained)
+     * Ruler Mode (Retained with Measurement Text)
      ***********************/
     function onOverlayClick(e) {
       const rect = overlayCanvas.getBoundingClientRect();
@@ -493,12 +493,6 @@
       }
       if (measurementPoints.length === 2) {
         drawMeasurementLine(measurementPoints[0], measurementPoints[1]);
-        const dx = measurementPoints[1].x - measurementPoints[0].x;
-        const dy = measurementPoints[1].y - measurementPoints[0].y;
-        const distanceInPixels = Math.sqrt(dx * dx + dy * dy);
-        const distanceInPDFPoints = distanceInPixels / scale;
-        const distanceInCm = distanceInPDFPoints / calibrationFactor;
-        measurementResult.textContent = "Distance: " + distanceInCm.toFixed(2) + " cm";
         measurementPoints = [];
       }
     }
@@ -510,6 +504,7 @@
       overlayCtx.moveTo(p1.x, p1.y);
       overlayCtx.lineTo(p2.x, p2.y);
       overlayCtx.stroke();
+      // Draw endpoints
       overlayCtx.fillStyle = "blue";
       overlayCtx.beginPath();
       overlayCtx.arc(p1.x, p1.y, 5, 0, 2 * Math.PI);
@@ -517,6 +512,17 @@
       overlayCtx.beginPath();
       overlayCtx.arc(p2.x, p2.y, 5, 0, 2 * Math.PI);
       overlayCtx.fill();
+      // Calculate and draw the distance near the midpoint
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const distanceInPixels = Math.sqrt(dx * dx + dy * dy);
+      const distanceInPDFPoints = distanceInPixels / scale;
+      const distanceInCm = distanceInPDFPoints / calibrationFactor;
+      const midX = (p1.x + p2.x) / 2;
+      const midY = (p1.y + p2.y) / 2;
+      overlayCtx.font = "14px Arial";
+      overlayCtx.fillStyle = "black";
+      overlayCtx.fillText(distanceInCm.toFixed(2) + " cm", midX + 5, midY - 5);
     }
 
     /***********************
@@ -577,10 +583,12 @@
       const rect = implantCanvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      const newCenterX = x - dragOffset.x;
-      const newCenterY = y - dragOffset.y;
-      selectedImplant.pdfX = newCenterX / scale;
-      selectedImplant.pdfY = newCenterY / scale;
+      const targetCenterX = (x - dragOffset.x) / scale;
+      const targetCenterY = (y - dragOffset.y) / scale;
+      // Reduce sensitivity by moving only a fraction (e.g., 50%) of the delta
+      const movementFactor = 0.5;
+      selectedImplant.pdfX = selectedImplant.pdfX + (targetCenterX - selectedImplant.pdfX) * movementFactor;
+      selectedImplant.pdfY = selectedImplant.pdfY + (targetCenterY - selectedImplant.pdfY) * movementFactor;
       redrawImplants();
     }
     function onImplantMouseUp(e) {
@@ -641,10 +649,11 @@
         const rect = implantCanvas.getBoundingClientRect();
         const x = touch.clientX - rect.left;
         const y = touch.clientY - rect.top;
-        const newCenterX = x - dragOffset.x;
-        const newCenterY = y - dragOffset.y;
-        selectedImplant.pdfX = newCenterX / scale;
-        selectedImplant.pdfY = newCenterY / scale;
+        const targetCenterX = (x - dragOffset.x) / scale;
+        const targetCenterY = (y - dragOffset.y) / scale;
+        const movementFactor = 0.5;
+        selectedImplant.pdfX = selectedImplant.pdfX + (targetCenterX - selectedImplant.pdfX) * movementFactor;
+        selectedImplant.pdfY = selectedImplant.pdfY + (targetCenterY - selectedImplant.pdfY) * movementFactor;
         redrawImplants();
         e.preventDefault();
       }
