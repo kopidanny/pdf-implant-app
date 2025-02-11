@@ -55,7 +55,8 @@
       background: #ccc;
       cursor: not-allowed;
     }
-    #controls input[type="number"], #controls select {
+    #controls input[type="number"],
+    #controls select {
       width: 70px;
       text-align: center;
     }
@@ -74,7 +75,8 @@
       display: none; /* Hidden by default */
     }
     #implant-menu select,
-    #implant-menu button {
+    #implant-menu button,
+    #implant-menu input[type="range"] {
       width: 100%;
       margin-top: 5px;
       padding: 8px;
@@ -129,7 +131,7 @@
 
   <header>
     <h1>PDF Implant App</h1>
-    <p>Choose a mode below. In Ruler mode, tap to measure; in Implant mode, place and adjust implants.</p>
+    <p>Choose a mode below. In Ruler mode, tap to measure; in Implant mode, add up to 3 implants and adjust rotation via the slider.</p>
   </header>
 
   <div id="controls">
@@ -145,10 +147,10 @@
       <option value="implant">Implant</option>
     </select>
 
-    <!-- Implant Controls (only visible in Implant mode) -->
+    <!-- Toggle Implant Menu Button (only shown in Implant mode) -->
     <button id="toggle-implant-menu" style="display:none;">Open Implant Menu</button>
-    <button id="rotate-left" style="display:none;">Rotate Left</button>
-    <button id="rotate-right" style="display:none;">Rotate Right</button>
+
+    <!-- Clear Implants -->
     <button id="clear-implants">Clear Implant(s)</button>
 
     <!-- Zoom Controls -->
@@ -168,10 +170,12 @@
 
   <!-- Implant Menu (Initially hidden) -->
   <div id="implant-menu">
-    <p>Select an implant to add:</p>
-    <label for="implant-select">Implant:</label>
+    <p>Implant Options:</p>
+    <label for="implant-select">Select Implant:</label>
     <select id="implant-select"></select>
     <button id="add-implant">Add Implant at Center</button>
+    <label for="rotate-slider">Rotate Selected Implant:</label>
+    <input type="range" id="rotate-slider" min="0" max="360" value="0">
   </div>
 
   <!-- PDF & Canvas Container -->
@@ -243,7 +247,7 @@
       };
     });
 
-    // Populate the implant dropdown in the implant menu.
+    // Populate the implant dropdown.
     const implantSelect = document.getElementById('implant-select');
     implantList.forEach(item => {
       const option = document.createElement('option');
@@ -264,8 +268,6 @@
     const nextPageBtn = document.getElementById('next-page');
     const modeSelectElem = document.getElementById('mode-select');
     const toggleImplantMenuBtn = document.getElementById('toggle-implant-menu');
-    const rotateLeftBtn = document.getElementById('rotate-left');
-    const rotateRightBtn = document.getElementById('rotate-right');
     const clearImplantsBtn = document.getElementById('clear-implants');
     const zoomInBtn = document.getElementById('zoom-in');
     const zoomOutBtn = document.getElementById('zoom-out');
@@ -275,6 +277,7 @@
     const measurementResult = document.getElementById('measurement-result');
     const pdfContainer = document.getElementById('pdf-container');
     const implantMenu = document.getElementById('implant-menu');
+    const rotateSlider = document.getElementById('rotate-slider');
 
     const pdfCanvas = document.getElementById('pdf-canvas');
     const implantCanvas = document.getElementById('implant-canvas');
@@ -300,12 +303,9 @@
     let selectedImplant = null;
     let dragOffset = { x: 0, y: 0 };
 
-    // For mouse dragging threshold (in PDF units)
-    const moveThreshold = 5;
-
+    // For simplicity, we remove multi-touch rotation and pinch zoom.
+    // Instead, rotation is controlled via the slider.
     let calibrationFactor = parseFloat(calibrationInput.value) || 28.346;
-
-    // (Pinch zoom removed for simplicity.)
 
     /***********************
      * Mode Selection (Dropdown)
@@ -320,9 +320,6 @@
         overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
         measurementPoints = [];
         implantMenu.style.display = 'none';
-        // Hide implant rotation buttons in ruler mode.
-        document.getElementById('rotate-left').style.display = 'none';
-        document.getElementById('rotate-right').style.display = 'none';
         toggleImplantMenuBtn.style.display = 'none';
       } else if (mode === 'implant') {
         measurementMode = false;
@@ -330,9 +327,6 @@
         attachImplantEvents();
         detachRulerEvents();
         toggleImplantMenuBtn.style.display = 'inline-block';
-        // Show implant rotation buttons in implant mode.
-        document.getElementById('rotate-left').style.display = 'inline-block';
-        document.getElementById('rotate-right').style.display = 'inline-block';
       }
     });
     // Set initial mode to Ruler.
@@ -374,33 +368,26 @@
       }
     });
 
-    // "Add Implant" button adds a new implant at the center (limit to 3).
+    // "Add Implant" button adds a new implant at the center.
     document.getElementById('add-implant').addEventListener('click', function() {
       if (implantObjects.length >= 3) {
-        alert("Maximum of 3 implants reached.");
+        alert("Maximum of 3 implants allowed.");
         return;
       }
       const centerX = implantCanvas.width / 2;
       const centerY = implantCanvas.height / 2;
       placeImplantAt(centerX, centerY);
+      // Select the newly added implant.
       selectedImplant = implantObjects[implantObjects.length - 1];
+      // Update rotation slider to the implant's rotation.
+      rotateSlider.value = selectedImplant.rotation;
     });
 
-    // Rotate buttons – each press rotates the selected implant by 15°.
-    document.getElementById('rotate-left').addEventListener('click', function() {
+    // When the rotation slider changes, update the selected implant.
+    rotateSlider.addEventListener('input', function() {
       if (selectedImplant) {
-        selectedImplant.rotation = (selectedImplant.rotation || 0) - 15;
+        selectedImplant.rotation = parseFloat(rotateSlider.value);
         redrawImplants();
-      } else {
-        alert("Please select an implant to rotate.");
-      }
-    });
-    document.getElementById('rotate-right').addEventListener('click', function() {
-      if (selectedImplant) {
-        selectedImplant.rotation = (selectedImplant.rotation || 0) + 15;
-        redrawImplants();
-      } else {
-        alert("Please select an implant to rotate.");
       }
     });
 
@@ -496,7 +483,7 @@
         return;
       }
       calibrationFactor = value;
-      alert('Calibration factor set to ' + calibrationFactor + ' pts/cm.');
+      alert('Calibration factor set to ' + calibrationFactor + ' points per cm.');
       renderPage();
     });
 
@@ -518,7 +505,7 @@
       e.preventDefault();
     }
     function processMeasurementPoint(x, y) {
-      // If already two points, next tap clears the measurement.
+      // If there are already two points, the next tap clears the measurement.
       if (measurementPoints.length >= 2) {
         measurementPoints = [];
         overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
@@ -551,7 +538,7 @@
       overlayCtx.beginPath();
       overlayCtx.arc(p2.x, p2.y, 5, 0, 2 * Math.PI);
       overlayCtx.fill();
-      // Calculate and display distance near the midpoint
+      // Display distance near the midpoint.
       const dx = p2.x - p1.x;
       const dy = p2.y - p1.y;
       const distanceInPixels = Math.sqrt(dx * dx + dy * dy);
@@ -577,7 +564,6 @@
         const dx = canvasX - centerX;
         const dy = canvasY - centerY;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        // Use half the diagonal of the implant as a threshold.
         const { pixelWidth, pixelHeight } = getImplantPixelDimensions(obj);
         const threshold = Math.sqrt((pixelWidth / 2) ** 2 + (pixelHeight / 2) ** 2);
         if (distance < threshold && distance < bestDistance) {
@@ -589,9 +575,9 @@
     }
 
     function placeImplantAt(canvasX, canvasY) {
-      // Enforce a maximum of 3 implants.
+      // Limit to 3 implants.
       if (implantObjects.length >= 3) {
-        alert("Maximum of 3 implants reached.");
+        alert("Maximum of 3 implants allowed.");
         return;
       }
       const pdfX = canvasX / scale;
@@ -607,7 +593,10 @@
       const hit = findImplantAt(x, y);
       if (hit) {
         selectedImplant = hit.implant;
+        // Update rotation slider to the selected implant's rotation.
+        rotateSlider.value = selectedImplant.rotation;
       } else {
+        // Tapping outside deselects.
         selectedImplant = null;
       }
     }
@@ -635,14 +624,9 @@
       const y = e.clientY - rect.top;
       const newCenterX = (x - dragOffset.x) / scale;
       const newCenterY = (y - dragOffset.y) / scale;
-      // Update position if movement exceeds threshold.
-      const dx = newCenterX - selectedImplant.pdfX;
-      const dy = newCenterY - selectedImplant.pdfY;
-      if (Math.sqrt(dx*dx + dy*dy) > moveThreshold) {
-        selectedImplant.pdfX = newCenterX;
-        selectedImplant.pdfY = newCenterY;
-        redrawImplants();
-      }
+      selectedImplant.pdfX = newCenterX;
+      selectedImplant.pdfY = newCenterY;
+      redrawImplants();
     }
 
     function onImplantMouseUp(e) {
@@ -652,7 +636,6 @@
     }
 
     function onImplantTouchStart(e) {
-      // For simplicity, we do not implement two-finger rotation here.
       const rect = implantCanvas.getBoundingClientRect();
       if (e.touches.length === 1) {
         const touch = e.touches[0];
@@ -682,21 +665,19 @@
         const y = touch.clientY - rect.top;
         const newCenterX = (x - dragOffset.x) / scale;
         const newCenterY = (y - dragOffset.y) / scale;
-        const dx = newCenterX - selectedImplant.pdfX;
-        const dy = newCenterY - selectedImplant.pdfY;
-        if (Math.sqrt(dx*dx + dy*dy) > moveThreshold) {
-          selectedImplant.pdfX = newCenterX;
-          selectedImplant.pdfY = newCenterY;
-          redrawImplants();
-        }
+        selectedImplant.pdfX = newCenterX;
+        selectedImplant.pdfY = newCenterY;
+        redrawImplants();
         e.preventDefault();
       }
     }
 
     function onImplantTouchEnd(e) {
-      selectedImplant = null;
-      implantCanvas.removeEventListener('touchmove', onImplantTouchMove);
-      implantCanvas.removeEventListener('touchend', onImplantTouchEnd);
+      if (e.touches.length === 0) {
+        selectedImplant = null;
+        implantCanvas.removeEventListener('touchmove', onImplantTouchMove);
+        implantCanvas.removeEventListener('touchend', onImplantTouchEnd);
+      }
       e.preventDefault();
     }
 
@@ -742,8 +723,7 @@
       redrawImplants();
     });
 
-    // (Pinch-to-zoom removed for simplicity; use Zoom In/Out buttons.)
-
+    // We are removing pinch zoom for simplicity.
   </script>
 </body>
 </html>
