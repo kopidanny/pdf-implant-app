@@ -145,10 +145,10 @@
       <option value="implant">Implant</option>
     </select>
 
-    <!-- Toggle Implant Menu Button (only shown in Implant mode) -->
+    <!-- Implant Controls (only visible in Implant mode) -->
     <button id="toggle-implant-menu" style="display:none;">Open Implant Menu</button>
-
-    <!-- Clear Implants -->
+    <button id="rotate-left" style="display:none;">Rotate Left</button>
+    <button id="rotate-right" style="display:none;">Rotate Right</button>
     <button id="clear-implants">Clear Implant(s)</button>
 
     <!-- Zoom Controls -->
@@ -168,8 +168,8 @@
 
   <!-- Implant Menu (Initially hidden) -->
   <div id="implant-menu">
-    <p>Pinch & Twist near an implant to rotate it.</p>
-    <label for="implant-select">Select Implant:</label>
+    <p>Select an implant to add:</p>
+    <label for="implant-select">Implant:</label>
     <select id="implant-select"></select>
     <button id="add-implant">Add Implant at Center</button>
   </div>
@@ -243,7 +243,7 @@
       };
     });
 
-    // Populate the implant dropdown.
+    // Populate the implant dropdown in the implant menu.
     const implantSelect = document.getElementById('implant-select');
     implantList.forEach(item => {
       const option = document.createElement('option');
@@ -264,6 +264,8 @@
     const nextPageBtn = document.getElementById('next-page');
     const modeSelectElem = document.getElementById('mode-select');
     const toggleImplantMenuBtn = document.getElementById('toggle-implant-menu');
+    const rotateLeftBtn = document.getElementById('rotate-left');
+    const rotateRightBtn = document.getElementById('rotate-right');
     const clearImplantsBtn = document.getElementById('clear-implants');
     const zoomInBtn = document.getElementById('zoom-in');
     const zoomOutBtn = document.getElementById('zoom-out');
@@ -298,18 +300,12 @@
     let selectedImplant = null;
     let dragOffset = { x: 0, y: 0 };
 
-    let rotationGestureActive = false;
-    let initialTwistAngle = 0;
-    let initialRotation = 0;
-
-    // A movement threshold (in PDF coordinate units) to avoid small unintended drags.
+    // For mouse dragging threshold (in PDF units)
     const moveThreshold = 5;
 
     let calibrationFactor = parseFloat(calibrationInput.value) || 28.346;
 
-    let pinchActive = false;
-    let initialPinchDistance = 0;
-    let initialScale = scale;
+    // (Pinch zoom removed for simplicity.)
 
     /***********************
      * Mode Selection (Dropdown)
@@ -324,6 +320,9 @@
         overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
         measurementPoints = [];
         implantMenu.style.display = 'none';
+        // Hide implant rotation buttons in ruler mode.
+        document.getElementById('rotate-left').style.display = 'none';
+        document.getElementById('rotate-right').style.display = 'none';
         toggleImplantMenuBtn.style.display = 'none';
       } else if (mode === 'implant') {
         measurementMode = false;
@@ -331,6 +330,9 @@
         attachImplantEvents();
         detachRulerEvents();
         toggleImplantMenuBtn.style.display = 'inline-block';
+        // Show implant rotation buttons in implant mode.
+        document.getElementById('rotate-left').style.display = 'inline-block';
+        document.getElementById('rotate-right').style.display = 'inline-block';
       }
     });
     // Set initial mode to Ruler.
@@ -372,13 +374,34 @@
       }
     });
 
-    // "Add Implant" button adds a new implant at the center.
+    // "Add Implant" button adds a new implant at the center (limit to 3).
     document.getElementById('add-implant').addEventListener('click', function() {
+      if (implantObjects.length >= 3) {
+        alert("Maximum of 3 implants reached.");
+        return;
+      }
       const centerX = implantCanvas.width / 2;
       const centerY = implantCanvas.height / 2;
       placeImplantAt(centerX, centerY);
-      // Select the newly added implant
       selectedImplant = implantObjects[implantObjects.length - 1];
+    });
+
+    // Rotate buttons – each press rotates the selected implant by 15°.
+    document.getElementById('rotate-left').addEventListener('click', function() {
+      if (selectedImplant) {
+        selectedImplant.rotation = (selectedImplant.rotation || 0) - 15;
+        redrawImplants();
+      } else {
+        alert("Please select an implant to rotate.");
+      }
+    });
+    document.getElementById('rotate-right').addEventListener('click', function() {
+      if (selectedImplant) {
+        selectedImplant.rotation = (selectedImplant.rotation || 0) + 15;
+        redrawImplants();
+      } else {
+        alert("Please select an implant to rotate.");
+      }
     });
 
     /***********************
@@ -473,7 +496,7 @@
         return;
       }
       calibrationFactor = value;
-      alert('Calibration factor set to ' + calibrationFactor + ' points per cm.');
+      alert('Calibration factor set to ' + calibrationFactor + ' pts/cm.');
       renderPage();
     });
 
@@ -495,7 +518,7 @@
       e.preventDefault();
     }
     function processMeasurementPoint(x, y) {
-      // If there are already two points, the next tap clears the measurement.
+      // If already two points, next tap clears the measurement.
       if (measurementPoints.length >= 2) {
         measurementPoints = [];
         overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
@@ -528,7 +551,7 @@
       overlayCtx.beginPath();
       overlayCtx.arc(p2.x, p2.y, 5, 0, 2 * Math.PI);
       overlayCtx.fill();
-      // Calculate and display distance near the midpoint.
+      // Calculate and display distance near the midpoint
       const dx = p2.x - p1.x;
       const dy = p2.y - p1.y;
       const distanceInPixels = Math.sqrt(dx * dx + dy * dy);
@@ -554,7 +577,7 @@
         const dx = canvasX - centerX;
         const dy = canvasY - centerY;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        // Use the implant's half-diagonal as threshold.
+        // Use half the diagonal of the implant as a threshold.
         const { pixelWidth, pixelHeight } = getImplantPixelDimensions(obj);
         const threshold = Math.sqrt((pixelWidth / 2) ** 2 + (pixelHeight / 2) ** 2);
         if (distance < threshold && distance < bestDistance) {
@@ -566,6 +589,11 @@
     }
 
     function placeImplantAt(canvasX, canvasY) {
+      // Enforce a maximum of 3 implants.
+      if (implantObjects.length >= 3) {
+        alert("Maximum of 3 implants reached.");
+        return;
+      }
       const pdfX = canvasX / scale;
       const pdfY = canvasY / scale;
       implantObjects.push({ pdfX, pdfY, rotation: 0, src: currentImplantSrc });
@@ -580,7 +608,6 @@
       if (hit) {
         selectedImplant = hit.implant;
       } else {
-        // Tapping outside any implant deselects.
         selectedImplant = null;
       }
     }
@@ -608,10 +635,10 @@
       const y = e.clientY - rect.top;
       const newCenterX = (x - dragOffset.x) / scale;
       const newCenterY = (y - dragOffset.y) / scale;
-      // Only update if the movement exceeds our threshold.
-      const deltaX = newCenterX - selectedImplant.pdfX;
-      const deltaY = newCenterY - selectedImplant.pdfY;
-      if (Math.sqrt(deltaX * deltaX + deltaY * deltaY) > moveThreshold) {
+      // Update position if movement exceeds threshold.
+      const dx = newCenterX - selectedImplant.pdfX;
+      const dy = newCenterY - selectedImplant.pdfY;
+      if (Math.sqrt(dx*dx + dy*dy) > moveThreshold) {
         selectedImplant.pdfX = newCenterX;
         selectedImplant.pdfY = newCenterY;
         redrawImplants();
@@ -625,25 +652,9 @@
     }
 
     function onImplantTouchStart(e) {
+      // For simplicity, we do not implement two-finger rotation here.
       const rect = implantCanvas.getBoundingClientRect();
-      if (e.touches.length === 2) {
-        // Rotation gesture.
-        const touch1 = e.touches[0];
-        const touch2 = e.touches[1];
-        const dx = touch2.clientX - touch1.clientX;
-        const dy = touch2.clientY - touch1.clientY;
-        initialTwistAngle = Math.atan2(dy, dx);
-        // Use the midpoint for hit testing.
-        const midX = ((touch1.clientX + touch2.clientX) / 2) - rect.left;
-        const midY = ((touch1.clientY + touch2.clientY) / 2) - rect.top;
-        const hit = findImplantAt(midX, midY);
-        if (hit) {
-          selectedImplant = hit.implant;
-        }
-        initialRotation = selectedImplant ? (selectedImplant.rotation || 0) : 0;
-        rotationGestureActive = true;
-        e.preventDefault();
-      } else if (e.touches.length === 1) {
+      if (e.touches.length === 1) {
         const touch = e.touches[0];
         const x = touch.clientX - rect.left;
         const y = touch.clientY - rect.top;
@@ -664,27 +675,16 @@
     }
 
     function onImplantTouchMove(e) {
-      if (rotationGestureActive && e.touches.length === 2 && selectedImplant) {
-        const touch1 = e.touches[0];
-        const touch2 = e.touches[1];
-        const dx = touch2.clientX - touch1.clientX;
-        const dy = touch2.clientY - touch1.clientY;
-        const currentTwistAngle = Math.atan2(dy, dx);
-        const deltaAngle = currentTwistAngle - initialTwistAngle;
-        const deltaDegrees = deltaAngle * (180 / Math.PI);
-        selectedImplant.rotation = initialRotation + deltaDegrees;
-        redrawImplants();
-        e.preventDefault();
-      } else if (!rotationGestureActive && e.touches.length === 1 && selectedImplant) {
+      if (e.touches.length === 1 && selectedImplant) {
         const touch = e.touches[0];
         const rect = implantCanvas.getBoundingClientRect();
         const x = touch.clientX - rect.left;
         const y = touch.clientY - rect.top;
         const newCenterX = (x - dragOffset.x) / scale;
         const newCenterY = (y - dragOffset.y) / scale;
-        const deltaX = newCenterX - selectedImplant.pdfX;
-        const deltaY = newCenterY - selectedImplant.pdfY;
-        if (Math.sqrt(deltaX * deltaX + deltaY * deltaY) > moveThreshold) {
+        const dx = newCenterX - selectedImplant.pdfX;
+        const dy = newCenterY - selectedImplant.pdfY;
+        if (Math.sqrt(dx*dx + dy*dy) > moveThreshold) {
           selectedImplant.pdfX = newCenterX;
           selectedImplant.pdfY = newCenterY;
           redrawImplants();
@@ -694,14 +694,9 @@
     }
 
     function onImplantTouchEnd(e) {
-      if (e.touches.length < 2) {
-        rotationGestureActive = false;
-      }
-      if (e.touches.length === 0) {
-        selectedImplant = null;
-        implantCanvas.removeEventListener('touchmove', onImplantTouchMove);
-        implantCanvas.removeEventListener('touchend', onImplantTouchEnd);
-      }
+      selectedImplant = null;
+      implantCanvas.removeEventListener('touchmove', onImplantTouchMove);
+      implantCanvas.removeEventListener('touchend', onImplantTouchEnd);
       e.preventDefault();
     }
 
@@ -747,35 +742,8 @@
       redrawImplants();
     });
 
-    /***********************
-     * Pinch-to-Zoom for PDF
-     ***********************/
-    function getDistance(touch1, touch2) {
-      const dx = touch2.clientX - touch1.clientX;
-      const dy = touch2.clientY - touch1.clientY;
-      return Math.sqrt(dx * dx + dy * dy);
-    }
-    pdfContainer.addEventListener('touchstart', function(e) {
-      if (e.touches.length === 2) {
-        pinchActive = true;
-        initialPinchDistance = getDistance(e.touches[0], e.touches[1]);
-        initialScale = scale;
-        e.preventDefault();
-      }
-    }, { passive: false });
-    pdfContainer.addEventListener('touchmove', function(e) {
-      if (pinchActive && e.touches.length === 2) {
-        const currentDistance = getDistance(e.touches[0], e.touches[1]);
-        scale = initialScale * (currentDistance / initialPinchDistance);
-        renderPage();
-        e.preventDefault();
-      }
-    }, { passive: false });
-    pdfContainer.addEventListener('touchend', function(e) {
-      if (e.touches.length < 2) {
-        pinchActive = false;
-      }
-    });
+    // (Pinch-to-zoom removed for simplicity; use Zoom In/Out buttons.)
+
   </script>
 </body>
 </html>
