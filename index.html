@@ -53,7 +53,7 @@
   <header>
     <h1>PDF Implant App</h1>
     <p>
-      Mode: Ruler (tap to measure) or Implant (add up to 3 implants, tap to select/move, adjust rotation with slider or 2‑finger gesture).
+      Mode: Ruler (tap to measure) or Implant (add up to 3 implants, tap to select/move, adjust rotation with slider).
     </p>
   </header>
 
@@ -166,7 +166,7 @@
     implantSelect.addEventListener('change', function() { currentImplantSrc = this.value; });
 
     /***********************
-     * Global DOM References & Variables
+     * Global Variables & DOM References
      ***********************/
     const fileInput = document.getElementById('file-input');
     const prevPageBtn = document.getElementById('prev-page');
@@ -194,7 +194,7 @@
     let measurementMode = false, measurementPoints = [];
     let implantMode = false, implantObjects = []; // Each: { pdfX, pdfY, rotation, src }
     let selectedImplant = null, dragOffset = { x: 0, y: 0 };
-    // In implant mode, pinch zoom is disabled.
+    // Disable pinch zoom in implant mode.
     let calibrationFactor = parseFloat(calibrationInput.value) || 28.346;
 
     /***********************
@@ -268,12 +268,6 @@
     });
     // Rotation slider updates the selected implant.
     rotateSlider.addEventListener('input', function() {
-      if (selectedImplant) {
-        selectedImplant.rotation = parseFloat(rotateSlider.value);
-        redrawImplants();
-      }
-    });
-    rotateSlider.addEventListener('change', function() {
       if (selectedImplant) {
         selectedImplant.rotation = parseFloat(rotateSlider.value);
         redrawImplants();
@@ -449,7 +443,6 @@
         selectedImplant = hit.implant;
         rotateSlider.value = selectedImplant.rotation;
       } else {
-        // Tapping outside deselects the implant.
         selectedImplant = null;
       }
     }
@@ -460,7 +453,8 @@
       if (hit) {
         selectedImplant = hit.implant;
         const centerX = selectedImplant.pdfX * scale, centerY = selectedImplant.pdfY * scale;
-        dragOffset.x = x - centerX; dragOffset.y = y - centerY;
+        dragOffset.x = x - centerX;
+        dragOffset.y = y - centerY;
         window.addEventListener('mousemove', onImplantMouseMove);
         window.addEventListener('mouseup', onImplantMouseUp);
       }
@@ -477,47 +471,33 @@
     function onImplantMouseUp(e) {
       window.removeEventListener('mousemove', onImplantMouseMove);
       window.removeEventListener('mouseup', onImplantMouseUp);
-      // Keep the implant selected so that the slider can adjust its rotation.
+      // Do not deselect; allow slider to adjust rotation.
     }
+    // For simplicity, disable two-finger rotation entirely.
     function onImplantTouchStart(e) {
       const rect = implantCanvas.getBoundingClientRect();
-      if (e.touches.length === 2) {
-        if (!selectedImplant) { e.preventDefault(); return; }
-        const touch1 = e.touches[0], touch2 = e.touches[1];
-        const dx = touch2.clientX - touch1.clientX, dy = touch2.clientY - touch1.clientY;
-        initialTwistAngle = Math.atan2(dy, dx);
-        initialRotation = selectedImplant.rotation || 0;
-        // Enable rotation gesture.
-        rotationGestureActive = true;
-        e.preventDefault();
-      } else if (e.touches.length === 1) {
+      if (e.touches.length === 1) {
         const touch = e.touches[0];
         const x = touch.clientX - rect.left, y = touch.clientY - rect.top;
         const hit = findImplantAt(x, y);
         if (hit) {
           selectedImplant = hit.implant;
           const centerX = selectedImplant.pdfX * scale, centerY = selectedImplant.pdfY * scale;
-          dragOffset.x = x - centerX; dragOffset.y = y - centerY;
-          implantCanvas.addEventListener('touchmove', onImplantTouchMove);
-          implantCanvas.addEventListener('touchend', onImplantTouchEnd);
+          dragOffset.x = x - centerX;
+          dragOffset.y = y - centerY;
         } else {
           selectedImplant = null;
         }
+        implantCanvas.addEventListener('touchmove', onImplantTouchMove);
+        implantCanvas.addEventListener('touchend', onImplantTouchEnd);
+        e.preventDefault();
+      } else {
+        // Ignore multi-touch in implant mode.
         e.preventDefault();
       }
     }
     function onImplantTouchMove(e) {
-      if (rotationGestureActive && e.touches.length === 2 && selectedImplant) {
-        const touch1 = e.touches[0], touch2 = e.touches[1];
-        const dx = touch2.clientX - touch1.clientX, dy = touch2.clientY - touch1.clientY;
-        const currentTwistAngle = Math.atan2(dy, dx);
-        const deltaAngle = currentTwistAngle - initialTwistAngle;
-        const deltaDegrees = deltaAngle * (180 / Math.PI);
-        selectedImplant.rotation = initialRotation + deltaDegrees;
-        rotateSlider.value = selectedImplant.rotation;
-        redrawImplants();
-        e.preventDefault();
-      } else if (!rotationGestureActive && e.touches.length === 1 && selectedImplant) {
+      if (e.touches.length === 1 && selectedImplant) {
         const touch = e.touches[0];
         const rect = implantCanvas.getBoundingClientRect();
         const x = touch.clientX - rect.left, y = touch.clientY - rect.top;
@@ -529,11 +509,8 @@
       }
     }
     function onImplantTouchEnd(e) {
-      if (e.touches.length < 2) { rotationGestureActive = false; }
-      if (e.touches.length === 0) {
-        implantCanvas.removeEventListener('touchmove', onImplantTouchMove);
-        implantCanvas.removeEventListener('touchend', onImplantTouchEnd);
-      }
+      implantCanvas.removeEventListener('touchmove', onImplantTouchMove);
+      implantCanvas.removeEventListener('touchend', onImplantTouchEnd);
       e.preventDefault();
     }
     function redrawImplants() {
@@ -572,7 +549,7 @@
       implantObjects = [];
       redrawImplants();
     });
-    // Disable pinch zoom in implant mode.
+    // In implant mode, disable pinch zoom.
     pdfContainer.addEventListener('touchstart', function(e) {
       if (implantMode && e.touches.length >= 2) { e.preventDefault(); }
     }, { passive: false });
