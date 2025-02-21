@@ -21,7 +21,7 @@
     #controls button { background: #007ACC; color: #fff; cursor: pointer; }
     #controls button:disabled { background: #ccc; cursor: not-allowed; }
     #controls input[type="number"], #controls select { width: 70px; text-align: center; }
-    /* Implant Menu – now simplified (rotation slider is removed from here) */
+    /* Implant Menu – basic options */
     #implant-menu {
       position: fixed; top: 10px; right: 10px; background: #fff; border: 1px solid #ccc;
       padding: 10px; border-radius: 4px; z-index: 200; box-shadow: 0 2px 6px rgba(0,0,0,0.2);
@@ -42,9 +42,7 @@
       padding: 5px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     }
-    #rotation-control input[type="range"] {
-      width: 100px;
-    }
+    #rotation-control input[type="range"] { width: 100px; }
     /* PDF Container */
     #pdf-container {
       position: relative; background: #fff; margin: 10px auto;
@@ -99,7 +97,7 @@
     <span id="measurement-result"></span>
   </div>
 
-  <!-- Implant Menu (for basic implant options) -->
+  <!-- Implant Menu (basic options only) -->
   <div id="implant-menu">
     <p>Implant Options:</p>
     <label for="implant-select">Select Implant:</label>
@@ -166,6 +164,7 @@
         console.error("Error loading implant image:", item.src, e);
       };
     });
+    // Populate implant dropdown.
     const implantSelect = document.getElementById('implant-select');
     implantList.forEach(item => {
       const option = document.createElement('option');
@@ -252,15 +251,14 @@
       implantMenu.style.display = (implantMenu.style.display === 'none' || implantMenu.style.display === '') ? 'block' : 'none';
       toggleImplantMenuBtn.textContent = (implantMenu.style.display === 'block') ? "Close Implant Menu" : "Open Implant Menu";
     });
-    // "Add Implant" button adds a new implant at the center.
+    // "Add Implant" button
     document.getElementById('add-implant').addEventListener('click', function() {
       if (implantObjects.length >= 3) { alert("Maximum of 3 implants allowed."); return; }
       const centerX = implantCanvas.width / 2, centerY = implantCanvas.height / 2;
       placeImplantAt(centerX, centerY);
       selectedImplant = implantObjects[implantObjects.length - 1];
-      // Show and position the rotation control near the selected implant.
-      updateRotationControl();
       rotateSlider.value = selectedImplant.rotation;
+      updateRotationControl();
       console.log("Implant added; rotation:", selectedImplant.rotation);
     });
     // Rotation slider updates the selected implant.
@@ -270,15 +268,16 @@
         console.log("Rotation slider value:", newRotation);
         selectedImplant.rotation = newRotation;
         redrawImplants();
+        updateRotationControl();
       }
     });
-    // Update rotation control position based on the selected implant.
+    // Update the rotation control position relative to the selected implant.
     function updateRotationControl() {
       if (selectedImplant) {
-        // Compute implant's position on screen (relative to pdfContainer).
+        // Compute implant's position in pdfContainer coordinates.
         const x = selectedImplant.pdfX * scale;
         const y = selectedImplant.pdfY * scale;
-        // Position the control slightly above and to the right.
+        // Position the rotation control relative to the implant.
         rotationControl.style.left = (x + 10) + "px";
         rotationControl.style.top = (y - 30) + "px";
         rotationControl.style.display = "block";
@@ -294,7 +293,9 @@
       fileReader.onload = function() {
         const typedarray = new Uint8Array(this.result);
         pdfjsLib.getDocument(typedarray).promise.then(function(pdf) {
-          pdfDoc = pdf; totalPages = pdf.numPages; currentPageNum = 1;
+          pdfDoc = pdf;
+          totalPages = pdf.numPages;
+          currentPageNum = 1;
           prevPageBtn.disabled = (currentPageNum === 1);
           nextPageBtn.disabled = (currentPageNum === totalPages);
           loadPage(currentPageNum);
@@ -304,7 +305,8 @@
     });
     function loadPage(num) {
       pdfDoc.getPage(num).then(function(page) {
-        pdfPage = page; renderPage();
+        pdfPage = page;
+        renderPage();
       });
     }
     function renderPage() {
@@ -320,10 +322,12 @@
       pdfPage.render(renderContext).promise.then(function() { redrawImplants(); });
     }
     prevPageBtn.addEventListener('click', function() {
-      if (currentPageNum <= 1) return; currentPageNum--; loadPage(currentPageNum); updatePageButtons();
+      if (currentPageNum <= 1) return;
+      currentPageNum--; loadPage(currentPageNum); updatePageButtons();
     });
     nextPageBtn.addEventListener('click', function() {
-      if (currentPageNum >= totalPages) return; currentPageNum++; loadPage(currentPageNum); updatePageButtons();
+      if (currentPageNum >= totalPages) return;
+      currentPageNum++; loadPage(currentPageNum); updatePageButtons();
     });
     function updatePageButtons() {
       prevPageBtn.disabled = (currentPageNum === 1);
@@ -341,9 +345,7 @@
       alert('Calibration factor set to ' + calibrationFactor + ' points per cm.');
       renderPage();
     });
-    /***********************
-     * Ruler Mode
-     ***********************/
+    // --- Ruler Mode ---
     function onOverlayClick(e) {
       const rect = overlayCanvas.getBoundingClientRect();
       const x = e.clientX - rect.left, y = e.clientY - rect.top;
@@ -397,9 +399,7 @@
       overlayCtx.fillStyle = "black";
       overlayCtx.fillText(distanceInCm.toFixed(2) + " cm", midX + 5, midY - 5);
     }
-    /***********************
-     * Implant Mode (Movement & Rotation via Slider)
-     ***********************/
+    // --- Implant Mode (Movement & Rotation via Slider Only) ---
     function findImplantAt(canvasX, canvasY) {
       let bestHit = null, bestDistance = Infinity;
       for (let i = 0; i < implantObjects.length; i++) {
@@ -463,7 +463,7 @@
     function onImplantMouseUp(e) {
       window.removeEventListener('mousemove', onImplantMouseMove);
       window.removeEventListener('mouseup', onImplantMouseUp);
-      // Keep selected implant so that rotation control remains visible.
+      // Keep the implant selected so the rotation control remains visible.
     }
     function onImplantTouchStart(e) {
       const rect = implantCanvas.getBoundingClientRect();
@@ -524,7 +524,7 @@
       const data = implantImages[implant.src];
       if (data && data.dims) {
         const widthCm = data.dims.widthMm / 10, heightCm = data.dims.heightMm / 10;
-        // Fixed size (not affected by PDF zoom)
+        // Fixed size: do not multiply by scale.
         pixelWidth = widthCm * calibrationFactor;
         pixelHeight = heightCm * calibrationFactor;
       } else if (data && data.img) {
@@ -543,27 +543,9 @@
       rotationControl.style.display = "none";
       redrawImplants();
     });
-    // In implant mode, disable pinch zoom on PDF container.
-    pdfContainer.addEventListener('touchstart', function(e) {
-      if (implantMode && e.touches.length >= 2) { e.preventDefault(); }
-    }, { passive: false });
-    pdfContainer.addEventListener('touchmove', function(e) {
-      if (implantMode && e.touches.length >= 2) { e.preventDefault(); }
-    }, { passive: false });
-    // --- Update rotation control position ---
-    function updateRotationControl() {
-      if (selectedImplant) {
-        // Calculate implant's position in PDF container coordinates.
-        const x = selectedImplant.pdfX * scale;
-        const y = selectedImplant.pdfY * scale;
-        // Position the rotation control slightly above and to the right.
-        rotationControl.style.left = (x + 10) + "px";
-        rotationControl.style.top = (y - 30) + "px";
-        rotationControl.style.display = "block";
-      } else {
-        rotationControl.style.display = "none";
-      }
-    }
+    // Disable pinch zoom in implant mode.
+    pdfContainer.addEventListener('touchstart', function(e) { if (implantMode && e.touches.length >= 2) { e.preventDefault(); } }, { passive: false });
+    pdfContainer.addEventListener('touchmove', function(e) { if (implantMode && e.touches.length >= 2) { e.preventDefault(); } }, { passive: false });
   </script>
 </body>
 </html>
