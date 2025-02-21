@@ -194,7 +194,6 @@
     let measurementMode = false, measurementPoints = [];
     let implantMode = false, implantObjects = []; // Each: { pdfX, pdfY, rotation, src }
     let selectedImplant = null, dragOffset = { x: 0, y: 0 };
-    // Disable pinch zoom in implant mode.
     let calibrationFactor = parseFloat(calibrationInput.value) || 28.346;
 
     /***********************
@@ -221,7 +220,6 @@
     });
     modeSelectElem.value = 'ruler';
     attachRulerEvents();
-
     function attachRulerEvents() {
       overlayCanvas.style.pointerEvents = 'auto';
       overlayCanvas.addEventListener('click', onOverlayClick);
@@ -264,12 +262,16 @@
       const centerY = implantCanvas.height / 2;
       placeImplantAt(centerX, centerY);
       selectedImplant = implantObjects[implantObjects.length - 1];
+      // Set the slider to the implant's current rotation (which is 0 initially).
       rotateSlider.value = selectedImplant.rotation;
+      console.log("Implant added. Selected implant rotation:", selectedImplant.rotation);
     });
     // Rotation slider updates the selected implant.
     rotateSlider.addEventListener('input', function() {
       if (selectedImplant) {
-        selectedImplant.rotation = parseFloat(rotateSlider.value);
+        let newRotation = parseFloat(rotateSlider.value);
+        console.log("Slider value:", newRotation);
+        selectedImplant.rotation = newRotation;
         redrawImplants();
       }
     });
@@ -469,93 +471,4 @@
       redrawImplants();
     }
     function onImplantMouseUp(e) {
-      window.removeEventListener('mousemove', onImplantMouseMove);
-      window.removeEventListener('mouseup', onImplantMouseUp);
-      // Do not deselect; allow slider to adjust rotation.
-    }
-    // For simplicity, disable two-finger rotation entirely.
-    function onImplantTouchStart(e) {
-      const rect = implantCanvas.getBoundingClientRect();
-      if (e.touches.length === 1) {
-        const touch = e.touches[0];
-        const x = touch.clientX - rect.left, y = touch.clientY - rect.top;
-        const hit = findImplantAt(x, y);
-        if (hit) {
-          selectedImplant = hit.implant;
-          const centerX = selectedImplant.pdfX * scale, centerY = selectedImplant.pdfY * scale;
-          dragOffset.x = x - centerX;
-          dragOffset.y = y - centerY;
-        } else {
-          selectedImplant = null;
-        }
-        implantCanvas.addEventListener('touchmove', onImplantTouchMove);
-        implantCanvas.addEventListener('touchend', onImplantTouchEnd);
-        e.preventDefault();
-      } else {
-        // Ignore multi-touch in implant mode.
-        e.preventDefault();
-      }
-    }
-    function onImplantTouchMove(e) {
-      if (e.touches.length === 1 && selectedImplant) {
-        const touch = e.touches[0];
-        const rect = implantCanvas.getBoundingClientRect();
-        const x = touch.clientX - rect.left, y = touch.clientY - rect.top;
-        const newCenterX = (x - dragOffset.x) / scale, newCenterY = (y - dragOffset.y) / scale;
-        selectedImplant.pdfX = newCenterX;
-        selectedImplant.pdfY = newCenterY;
-        redrawImplants();
-        e.preventDefault();
-      }
-    }
-    function onImplantTouchEnd(e) {
-      implantCanvas.removeEventListener('touchmove', onImplantTouchMove);
-      implantCanvas.removeEventListener('touchend', onImplantTouchEnd);
-      e.preventDefault();
-    }
-    function redrawImplants() {
-      implantCtx.clearRect(0, 0, implantCanvas.width, implantCanvas.height);
-      implantObjects.forEach(function(implant) {
-        const { pixelWidth, pixelHeight } = getImplantPixelDimensions(implant);
-        const centerX = implant.pdfX * scale, centerY = implant.pdfY * scale;
-        implantCtx.save();
-        implantCtx.translate(centerX, centerY);
-        implantCtx.rotate((implant.rotation || 0) * Math.PI / 180);
-        if (implantImages[implant.src] && implantImages[implant.src].img.complete) {
-          implantCtx.drawImage(implantImages[implant.src].img, -pixelWidth/2, -pixelHeight/2, pixelWidth, pixelHeight);
-        }
-        implantCtx.restore();
-      });
-    }
-    function getImplantPixelDimensions(implant) {
-      let pixelWidth, pixelHeight;
-      const data = implantImages[implant.src];
-      if (data && data.dims) {
-        const widthCm = data.dims.widthMm / 10, heightCm = data.dims.heightMm / 10;
-        // Size remains constant regardless of PDF zoom.
-        pixelWidth = widthCm * calibrationFactor;
-        pixelHeight = heightCm * calibrationFactor;
-      } else if (data && data.img) {
-        const desiredHeightCm = parseFloat(implantHeightInput.value) || 2;
-        const aspectRatio = (data.img.naturalWidth||1) / (data.img.naturalHeight||1);
-        pixelHeight = desiredHeightCm * calibrationFactor;
-        pixelWidth = pixelHeight * aspectRatio;
-      } else {
-        pixelWidth = 50; pixelHeight = 50;
-      }
-      return { pixelWidth, pixelHeight };
-    }
-    clearImplantsBtn.addEventListener('click', function() {
-      implantObjects = [];
-      redrawImplants();
-    });
-    // In implant mode, disable pinch zoom.
-    pdfContainer.addEventListener('touchstart', function(e) {
-      if (implantMode && e.touches.length >= 2) { e.preventDefault(); }
-    }, { passive: false });
-    pdfContainer.addEventListener('touchmove', function(e) {
-      if (implantMode && e.touches.length >= 2) { e.preventDefault(); }
-    }, { passive: false });
-  </script>
-</body>
-</html>
+      window.removeEventListener('mousemove', onImplantMouseMove
