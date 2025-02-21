@@ -8,60 +8,124 @@
   <style>
     /* Basic Reset */
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, sans-serif; background: #f8f8f8; color: #333; line-height: 1.4; }
+    body { font-family: Arial, sans-serif; background: #f8f8f8; color: #333; }
     header { background: #007ACC; color: #fff; padding: 10px; text-align: center; }
     header h1 { font-size: 1.4em; margin-bottom: 5px; }
-    #controls {
-      display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding: 10px;
-      background: #e0e0e0;
+    
+    /* Icon Bar (L-shaped) in upper-right */
+    #icon-bar {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 300;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
     }
-    #controls button, #controls input, #controls label, #controls select {
-      font-size: 1em; padding: 8px; border: none; border-radius: 4px;
+    /* Top row (horizontal) */
+    #icon-bar .top-row {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 5px;
     }
-    #controls button { background: #007ACC; color: #fff; cursor: pointer; }
-    #controls button:disabled { background: #ccc; cursor: not-allowed; }
-    #controls input[type="number"], #controls select { width: 70px; text-align: center; }
-    /* Implant Menu – basic options */
-    #implant-menu {
-      position: fixed; top: 10px; right: 10px; background: #fff; border: 1px solid #ccc;
-      padding: 10px; border-radius: 4px; z-index: 200; box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-      font-size: 0.9em; display: none;
+    /* Bottom column (vertical) */
+    #icon-bar .bottom-column {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
     }
-    #implant-menu select, #implant-menu button {
-      width: 100%; margin-top: 5px; padding: 8px; font-size: 0.9em; border: 1px solid #ccc;
+    #icon-bar button {
+      background: transparent;
+      border: none;
+      font-size: 1.5em;
+      cursor: pointer;
+    }
+    #icon-bar button.active {
+      color: #007ACC;
+    }
+    
+    /* Submenu Panels (slide-out) */
+    .submenu {
+      position: fixed;
+      top: 10px;
+      right: 60px;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 10px;
+      z-index: 290;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      display: none;
+      transition: transform 0.3s ease;
+    }
+    /* Calibration menu and Implant submenu share similar styling */
+    #calibration-menu input[type="number"],
+    #calibration-menu button,
+    #implant-menu select,
+    #implant-menu button {
+      width: 100%;
+      margin-top: 5px;
+      padding: 5px;
+      font-size: 0.9em;
+      border: 1px solid #ccc;
       border-radius: 4px;
     }
-    /* Rotation Control – appears near the selected implant */
+    
+    /* Zoom Status Indicator */
+    #zoom-status {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: rgba(255,255,255,0.9);
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 5px;
+      z-index: 300;
+      display: none;
+    }
+    
+    /* PDF Container */
+    #pdf-container {
+      position: relative;
+      background: #fff;
+      margin: 60px auto 60px auto;  /* leave space for icon bar and donation button */
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      max-width: 100%;
+    }
+    /* Canvas Styles */
+    #pdf-canvas { position: relative; z-index: 1; }
+    #implant-canvas { position: absolute; top: 0; left: 0; z-index: 2; }
+    #overlay-canvas { position: absolute; top: 0; left: 0; z-index: 3; }
+    
+    /* Dynamic Rotation Slider (appears near selected implant) */
     #rotation-control {
       position: absolute;
-      z-index: 4;
-      display: none;
+      z-index: 350;
       background: rgba(255,255,255,0.9);
       border: 1px solid #ccc;
       border-radius: 4px;
       padding: 5px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      display: none;
     }
-    #rotation-control input[type="range"] { width: 100px; }
-    /* PDF Container */
-    #pdf-container {
-      position: relative; background: #fff; margin: 10px auto;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2); max-width: 100%;
+    #rotation-control input[type="range"] {
+      width: 100px;
     }
-    /* Canvas Styles with explicit z-index */
-    #pdf-canvas { position: relative; z-index: 1; }
-    #implant-canvas { position: absolute; top: 0; left: 0; z-index: 2; }
-    #overlay-canvas { position: absolute; top: 0; left: 0; z-index: 3; }
-    /* Donation Section */
+    
+    /* Donation Section (fixed at lower left) */
     #donation {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      z-index: 300;
       text-align: center;
-      margin: 20px 0;
     }
+    
     /* Responsive adjustments */
     @media (max-width: 480px) {
-      header h1 { font-size: 1.2em; }
-      #controls button, #controls input, #controls label, #controls select { font-size: 0.9em; padding: 6px; }
-      #implant-menu, #rotation-control { font-size: 0.8em; }
+      #icon-bar button { font-size: 1.2em; }
+      .submenu { font-size: 0.8em; }
+      #donation { font-size: 0.8em; }
     }
   </style>
 </head>
@@ -69,59 +133,54 @@
 
   <header>
     <h1>PDF Implant App</h1>
-    <p>
-      Mode: Ruler (tap to measure) or Implant (add up to 3 implants, tap to select/move, adjust rotation via slider).
-    </p>
+    <p>Use the icons in the upper–right to control the app.</p>
   </header>
 
-  <div id="controls">
-    <!-- PDF Navigation & File Input -->
-    <input type="file" id="file-input" accept="application/pdf">
-    <button id="prev-page" disabled>Prev Page</button>
-    <button id="next-page" disabled>Next Page</button>
-    <!-- Mode Dropdown -->
-    <label for="mode-select">Mode:</label>
-    <select id="mode-select">
-      <option value="ruler">Ruler</option>
-      <option value="implant">Implant</option>
-    </select>
-    <!-- Toggle Implant Menu (visible in Implant mode) -->
-    <button id="toggle-implant-menu" style="display:none;">Open Implant Menu</button>
-    <!-- Clear Implants -->
-    <button id="clear-implants">Clear Implant(s)</button>
-    <!-- Zoom Controls (active only in Ruler mode) -->
-    <button id="zoom-in">Zoom In</button>
-    <button id="zoom-out">Zoom Out</button>
-    <!-- Calibration & Implant Height -->
-    <label for="calibration-factor">Calib (pts/cm):</label>
-    <input type="number" id="calibration-factor" value="28.346" step="0.1">
-    <button id="set-calibration">Set</button>
-    <label for="implant-height">Implant Height (cm):</label>
-    <input type="number" id="implant-height" value="2" step="0.1">
-    <!-- Measurement Result -->
-    <span id="measurement-result"></span>
+  <!-- Icon Bar (upper-right) -->
+  <div id="icon-bar">
+    <div class="top-row">
+      <button id="upload-btn" title="Upload PDF">📁</button>
+      <button id="calibration-btn" title="Calibration">⚙️</button>
+    </div>
+    <div class="bottom-column">
+      <button id="ruler-btn" title="Ruler Mode">📏</button>
+      <button id="implant-btn" title="Implant Mode">🔩</button>
+      <button id="zoom-btn" title="Enable Zoom">🔍</button>
+    </div>
   </div>
 
-  <!-- Implant Menu (basic options only) -->
-  <div id="implant-menu">
-    <p>Implant Options:</p>
+  <!-- Submenus -->
+  <div id="implant-menu" class="submenu">
+    <p><strong>Implant Options</strong></p>
     <label for="implant-select">Select Implant:</label>
     <select id="implant-select"></select>
     <button id="add-implant">Add Implant at Center</button>
   </div>
+  <div id="calibration-menu" class="submenu">
+    <p><strong>Calibration</strong></p>
+    <label for="calibration-factor">Calib (pts/cm):</label>
+    <input type="number" id="calibration-factor" value="28.346" step="0.1">
+    <label for="implant-height">Implant Height (cm):</label>
+    <input type="number" id="implant-height" value="2" step="0.1">
+    <button id="set-calibration">Set</button>
+  </div>
+
+  <!-- Zoom Status Indicator -->
+  <div id="zoom-status">Zoom Enabled</div>
 
   <!-- PDF & Canvas Container -->
   <div id="pdf-container">
     <canvas id="pdf-canvas"></canvas>
     <canvas id="implant-canvas"></canvas>
     <canvas id="overlay-canvas"></canvas>
-    <!-- Rotation Control (appears near the selected implant) -->
-    <div id="rotation-control">
-      <input type="range" id="rotate-slider" min="0" max="360" value="0">
-    </div>
   </div>
 
-  <!-- Donation Section -->
+  <!-- Dynamic Rotation Slider (appears near selected implant) -->
+  <div id="rotation-control">
+    <input type="range" id="rotate-slider-dynamic" min="0" max="360" value="0">
+  </div>
+
+  <!-- Donation Section (PayPal button fixed at lower left) -->
   <div id="donation">
     <h3>Support This Project</h3>
     <form action="https://www.paypal.com/donate" method="post" target="_top">
@@ -135,10 +194,10 @@
   <!-- Include pdf.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.7.107/pdf.min.js"></script>
   <script>
-    // --- PDF.js Setup ---
+    /*************** PDF.js Setup ***************/
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.7.107/pdf.worker.min.js';
 
-    // --- Implant List & Preloading Images ---
+    /*************** Implant List & Preloading Images ***************/
     const implantList = [
       { src: 'res/3.3x10mm.svg',    name: '3.3 x 10 mm' },
       { src: 'res/3.3x11.5mm.svg',  name: '3.3 x 11.5 mm' },
@@ -180,7 +239,7 @@
         console.error("Error loading implant image:", item.src, e);
       };
     });
-    // Populate implant dropdown.
+    // Populate implant submenu dropdown.
     const implantSelect = document.getElementById('implant-select');
     implantList.forEach(item => {
       const option = document.createElement('option');
@@ -191,115 +250,106 @@
     let currentImplantSrc = implantSelect.value;
     implantSelect.addEventListener('change', function() { currentImplantSrc = this.value; });
 
-    // --- Global Variables & DOM References ---
+    /*************** Global Variables & DOM References ***************/
     const fileInput = document.getElementById('file-input');
     const prevPageBtn = document.getElementById('prev-page');
     const nextPageBtn = document.getElementById('next-page');
     const modeSelectElem = document.getElementById('mode-select');
+    const uploadBtn = document.getElementById('upload-btn');
+    const rulerBtn = document.getElementById('ruler-btn');
+    const implantBtn = document.getElementById('implant-btn');
+    const zoomBtn = document.getElementById('zoom-btn');
+    const calibrationBtn = document.getElementById('calibration-btn');
     const toggleImplantMenuBtn = document.getElementById('toggle-implant-menu');
     const clearImplantsBtn = document.getElementById('clear-implants');
-    const zoomInBtn = document.getElementById('zoom-in');
-    const zoomOutBtn = document.getElementById('zoom-out');
-    const calibrationInput = document.getElementById('calibration-factor');
-    const setCalibrationBtn = document.getElementById('set-calibration');
-    const implantHeightInput = document.getElementById('implant-height');
-    const measurementResult = document.getElementById('measurement-result');
     const pdfContainer = document.getElementById('pdf-container');
-    const implantMenu = document.getElementById('implant-menu');
-    const rotateSlider = document.getElementById('rotate-slider');
-    const rotationControl = document.getElementById('rotation-control');
+    const donationDiv = document.getElementById('donation');
+    const calibrationMenu = document.getElementById('calibration-menu');
+    const zoomStatus = document.getElementById('zoom-status');
     const pdfCanvas = document.getElementById('pdf-canvas');
     const implantCanvas = document.getElementById('implant-canvas');
     const overlayCanvas = document.getElementById('overlay-canvas');
     const pdfCtx = pdfCanvas.getContext('2d');
     const implantCtx = implantCanvas.getContext('2d');
     const overlayCtx = overlayCanvas.getContext('2d');
+    const rotateSlider = document.getElementById('rotate-slider');
+    const rotationControl = document.getElementById('rotation-control');
     let pdfDoc = null, currentPageNum = 1, totalPages = 0, pdfPage = null;
-    let scale = 1.0, pageViewport = null, currentScale = scale;
+    let scale = 1.0, currentScale = scale;
     let measurementMode = false, measurementPoints = [];
     let implantMode = false, implantObjects = []; // Each: { pdfX, pdfY, rotation, src }
     let selectedImplant = null, dragOffset = { x: 0, y: 0 };
-    let calibrationFactor = parseFloat(calibrationInput.value) || 28.346;
+    let calibrationFactor = parseFloat(document.getElementById('calibration-factor').value) || 28.346;
+    let zoomEnabled = false, zoomTimeout = null;
 
-    // --- Mode Selection ---
-    modeSelectElem.addEventListener('change', function() {
-      if (modeSelectElem.value === 'ruler') {
-        measurementMode = true; implantMode = false;
-        attachRulerEvents(); detachImplantEvents();
-        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-        measurementPoints = [];
-        implantMenu.style.display = 'none';
-        toggleImplantMenuBtn.style.display = 'none';
-        rotationControl.style.display = 'none';
-      } else {
-        measurementMode = false; implantMode = true;
-        attachImplantEvents(); detachRulerEvents();
-        toggleImplantMenuBtn.style.display = 'inline-block';
+    /*************** Icon Bar Button Event Listeners ***************/
+    // Upload Button: trigger file input dialog.
+    uploadBtn.addEventListener('click', function() {
+      fileInput.click();
+    });
+    // Ruler Button: toggle ruler mode.
+    rulerBtn.addEventListener('click', function() {
+      rulerBtn.classList.add('active');
+      implantBtn.classList.remove('active');
+      modeSelectElem.value = 'ruler';
+      measurementMode = true;
+      implantMode = false;
+      detachImplantEvents();
+      attachRulerEvents();
+      // Hide any open submenus.
+      calibrationMenu.style.display = 'none';
+      document.getElementById('implant-menu').style.display = 'none';
+      rotationControl.style.display = 'none';
+    });
+    // Implant Button: toggle implant mode.
+    implantBtn.addEventListener('click', function() {
+      implantBtn.classList.add('active');
+      rulerBtn.classList.remove('active');
+      modeSelectElem.value = 'implant';
+      measurementMode = false;
+      implantMode = true;
+      detachRulerEvents();
+      attachImplantEvents();
+      // Show implant submenu (slide out).
+      document.getElementById('implant-menu').style.display = 'block';
+    });
+    // Zoom Button: enable zoom mode temporarily.
+    zoomBtn.addEventListener('click', function() {
+      if (!zoomEnabled) {
+        zoomEnabled = true;
+        zoomStatus.style.display = 'block';
+        // Enable pinch zoom by not preventing default in PDF container.
+        // After 5 seconds, disable zoom.
+        if (zoomTimeout) clearTimeout(zoomTimeout);
+        zoomTimeout = setTimeout(function() {
+          zoomEnabled = false;
+          zoomStatus.style.display = 'none';
+        }, 5000);
       }
     });
-    modeSelectElem.value = 'ruler';
-    attachRulerEvents();
+    // Calibration Button: toggle calibration menu (slide out).
+    calibrationBtn.addEventListener('click', function() {
+      if (calibrationMenu.style.display === 'block') {
+        calibrationMenu.style.display = 'none';
+      } else {
+        calibrationMenu.style.display = 'block';
+      }
+    });
 
-    function attachRulerEvents() {
-      overlayCanvas.style.pointerEvents = 'auto';
-      overlayCanvas.addEventListener('click', onOverlayClick);
-      overlayCanvas.addEventListener('touchend', onOverlayTouch);
-    }
-    function detachRulerEvents() {
-      overlayCanvas.style.pointerEvents = 'none';
-      overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-      overlayCanvas.removeEventListener('click', onOverlayClick);
-      overlayCanvas.removeEventListener('touchend', onOverlayTouch);
-    }
-    function attachImplantEvents() {
-      implantCanvas.style.pointerEvents = 'auto';
-      implantCanvas.addEventListener('click', onImplantClick);
-      implantCanvas.addEventListener('mousedown', onImplantMouseDown);
-      implantCanvas.addEventListener('touchstart', onImplantTouchStart);
-    }
-    function detachImplantEvents() {
-      implantCanvas.style.pointerEvents = 'none';
-      implantCanvas.removeEventListener('click', onImplantClick);
-      implantCanvas.removeEventListener('mousedown', onImplantMouseDown);
-      implantCanvas.removeEventListener('touchstart', onImplantTouchStart);
-    }
-    toggleImplantMenuBtn.addEventListener('click', function() {
-      implantMenu.style.display = (implantMenu.style.display === 'none' || implantMenu.style.display === '') ? 'block' : 'none';
-      toggleImplantMenuBtn.textContent = (implantMenu.style.display === 'block') ? "Close Implant Menu" : "Open Implant Menu";
+    /*************** Calibration Menu Logic ***************/
+    // (Calibration menu is a slide-out panel containing calibration inputs.)
+    // We'll reuse the existing calibration input fields from the calibrationMenu.
+    // For simplicity, here we assume calibrationMenu contains:
+    //   an input#calibration-factor and input#implant-height and a button#set-calibration.
+    setCalibrationBtn.addEventListener('click', function() {
+      const value = parseFloat(document.getElementById('calibration-factor').value);
+      if (isNaN(value) || value <= 0) { alert('Please enter a valid calibration factor.'); return; }
+      calibrationFactor = value;
+      alert('Calibration factor set to ' + calibrationFactor + ' points per cm.');
+      renderPage();
     });
-    // "Add Implant" button
-    document.getElementById('add-implant').addEventListener('click', function() {
-      if (implantObjects.length >= 3) { alert("Maximum of 3 implants allowed."); return; }
-      const centerX = implantCanvas.width / 2, centerY = implantCanvas.height / 2;
-      placeImplantAt(centerX, centerY);
-      selectedImplant = implantObjects[implantObjects.length - 1];
-      rotateSlider.value = selectedImplant.rotation;
-      updateRotationControl();
-      console.log("Implant added; rotation:", selectedImplant.rotation);
-    });
-    // Rotation slider updates the selected implant.
-    rotateSlider.addEventListener('input', function() {
-      if (selectedImplant) {
-        let newRotation = parseFloat(rotateSlider.value);
-        console.log("Rotation slider value:", newRotation);
-        selectedImplant.rotation = newRotation;
-        redrawImplants();
-        updateRotationControl();
-      }
-    });
-    // Update the rotation control position near the selected implant.
-    function updateRotationControl() {
-      if (selectedImplant) {
-        const x = selectedImplant.pdfX * scale;
-        const y = selectedImplant.pdfY * scale;
-        rotationControl.style.left = (x + 10) + "px";
-        rotationControl.style.top = (y - 30) + "px";
-        rotationControl.style.display = "block";
-      } else {
-        rotationControl.style.display = "none";
-      }
-    }
-    // --- PDF File Loading & Rendering ---
+
+    /*************** PDF File Loading & Rendering ***************/
     fileInput.addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (!file || file.type !== 'application/pdf') { alert('Please upload a valid PDF file.'); return; }
@@ -308,8 +358,6 @@
         const typedarray = new Uint8Array(this.result);
         pdfjsLib.getDocument(typedarray).promise.then(function(pdf) {
           pdfDoc = pdf; totalPages = pdf.numPages; currentPageNum = 1;
-          prevPageBtn.disabled = (currentPageNum === 1);
-          nextPageBtn.disabled = (currentPageNum === totalPages);
           loadPage(currentPageNum);
         }).catch(function(error) { console.error('Error loading PDF:', error); });
       };
@@ -317,56 +365,36 @@
     });
     function loadPage(num) {
       pdfDoc.getPage(num).then(function(page) {
-        pdfPage = page;
-        renderPage();
+        pdfPage = page; renderPage();
       });
     }
     function renderPage() {
       const viewport = pdfPage.getViewport({ scale: scale });
-      pageViewport = viewport; currentScale = scale;
-      pdfCanvas.width = viewport.width; pdfCanvas.height = viewport.height;
-      implantCanvas.width = viewport.width; implantCanvas.height = viewport.height;
-      overlayCanvas.width = viewport.width; overlayCanvas.height = viewport.height;
+      pdfCanvas.width = viewport.width;
+      pdfCanvas.height = viewport.height;
+      implantCanvas.width = viewport.width;
+      implantCanvas.height = viewport.height;
+      overlayCanvas.width = viewport.width;
+      overlayCanvas.height = viewport.height;
       pdfCtx.clearRect(0, 0, pdfCanvas.width, pdfCanvas.height);
       implantCtx.clearRect(0, 0, implantCanvas.width, implantCanvas.height);
       overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
       const renderContext = { canvasContext: pdfCtx, viewport: viewport };
       pdfPage.render(renderContext).promise.then(function() { redrawImplants(); });
     }
-    prevPageBtn.addEventListener('click', function() {
-      if (currentPageNum <= 1) return;
-      currentPageNum--; loadPage(currentPageNum); updatePageButtons();
-    });
-    nextPageBtn.addEventListener('click', function() {
-      if (currentPageNum >= totalPages) return;
-      currentPageNum++; loadPage(currentPageNum); updatePageButtons();
-    });
-    function updatePageButtons() {
-      prevPageBtn.disabled = (currentPageNum === 1);
-      nextPageBtn.disabled = (currentPageNum === totalPages);
-      measurementPoints = [];
-      overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-      measurementResult.textContent = "";
-    }
-    zoomInBtn.addEventListener('click', function() { if (!implantMode) { scale *= 1.1; renderPage(); } });
-    zoomOutBtn.addEventListener('click', function() { if (!implantMode) { scale /= 1.1; renderPage(); } });
-    setCalibrationBtn.addEventListener('click', function() {
-      const value = parseFloat(calibrationInput.value);
-      if (isNaN(value) || value <= 0) { alert('Please enter a valid calibration factor.'); return; }
-      calibrationFactor = value;
-      alert('Calibration factor set to ' + calibrationFactor + ' points per cm.');
-      renderPage();
-    });
-    // --- Ruler Mode ---
+
+    /*************** Ruler Mode (existing functionality) ***************/
     function onOverlayClick(e) {
       const rect = overlayCanvas.getBoundingClientRect();
-      const x = e.clientX - rect.left, y = e.clientY - rect.top;
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
       processMeasurementPoint(x, y);
     }
     function onOverlayTouch(e) {
       const touch = e.changedTouches[0];
       const rect = overlayCanvas.getBoundingClientRect();
-      const x = touch.clientX - rect.left, y = touch.clientY - rect.top;
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
       processMeasurementPoint(x, y);
       e.preventDefault();
     }
@@ -404,19 +432,19 @@
       overlayCtx.fill();
       const dx = p2.x - p1.x, dy = p2.y - p1.y;
       const distanceInPixels = Math.sqrt(dx * dx + dy * dy);
-      const distanceInPDFPoints = distanceInPixels / scale;
-      const distanceInCm = distanceInPDFPoints / calibrationFactor;
-      const midX = (p1.x + p2.x) / 2, midY = (p1.y + p2.y) / 2;
+      const distanceInCm = (distanceInPixels / scale) / calibrationFactor;
       overlayCtx.font = "14px Arial";
       overlayCtx.fillStyle = "black";
-      overlayCtx.fillText(distanceInCm.toFixed(2) + " cm", midX + 5, midY - 5);
+      overlayCtx.fillText(distanceInCm.toFixed(2) + " cm", (p1.x+p2.x)/2 + 5, (p1.y+p2.y)/2 - 5);
     }
-    // --- Implant Mode (Movement & Rotation via Slider) ---
+
+    /*************** Implant Mode (Movement & Rotation) ***************/
     function findImplantAt(canvasX, canvasY) {
       let bestHit = null, bestDistance = Infinity;
       for (let i = 0; i < implantObjects.length; i++) {
         const obj = implantObjects[i];
-        const centerX = obj.pdfX * scale, centerY = obj.pdfY * scale;
+        const centerX = obj.pdfX * scale;
+        const centerY = obj.pdfY * scale;
         const dx = canvasX - centerX, dy = canvasY - centerY;
         const distance = Math.sqrt(dx * dx + dy * dy);
         const { pixelWidth, pixelHeight } = getImplantPixelDimensions(obj);
@@ -436,7 +464,8 @@
     }
     function onImplantClick(e) {
       const rect = implantCanvas.getBoundingClientRect();
-      const x = e.clientX - rect.left, y = e.clientY - rect.top;
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
       const hit = findImplantAt(x, y);
       if (hit) {
         selectedImplant = hit.implant;
@@ -449,13 +478,15 @@
     }
     function onImplantMouseDown(e) {
       const rect = implantCanvas.getBoundingClientRect();
-      const x = e.clientX - rect.left, y = e.clientY - rect.top;
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
       const hit = findImplantAt(x, y);
       if (hit) {
         selectedImplant = hit.implant;
         rotateSlider.value = selectedImplant.rotation;
         updateRotationControl();
-        const centerX = selectedImplant.pdfX * scale, centerY = selectedImplant.pdfY * scale;
+        const centerX = selectedImplant.pdfX * scale;
+        const centerY = selectedImplant.pdfY * scale;
         dragOffset.x = x - centerX;
         dragOffset.y = y - centerY;
         window.addEventListener('mousemove', onImplantMouseMove);
@@ -465,8 +496,10 @@
     function onImplantMouseMove(e) {
       if (!selectedImplant) return;
       const rect = implantCanvas.getBoundingClientRect();
-      const x = e.clientX - rect.left, y = e.clientY - rect.top;
-      const newCenterX = (x - dragOffset.x) / scale, newCenterY = (y - dragOffset.y) / scale;
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const newCenterX = (x - dragOffset.x) / scale;
+      const newCenterY = (y - dragOffset.y) / scale;
       selectedImplant.pdfX = newCenterX;
       selectedImplant.pdfY = newCenterY;
       redrawImplants();
@@ -475,19 +508,20 @@
     function onImplantMouseUp(e) {
       window.removeEventListener('mousemove', onImplantMouseMove);
       window.removeEventListener('mouseup', onImplantMouseUp);
-      // Keep implant selected so rotation control remains visible.
     }
     function onImplantTouchStart(e) {
       const rect = implantCanvas.getBoundingClientRect();
       if (e.touches.length === 1) {
         const touch = e.touches[0];
-        const x = touch.clientX - rect.left, y = touch.clientY - rect.top;
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
         const hit = findImplantAt(x, y);
         if (hit) {
           selectedImplant = hit.implant;
           rotateSlider.value = selectedImplant.rotation;
           updateRotationControl();
-          const centerX = selectedImplant.pdfX * scale, centerY = selectedImplant.pdfY * scale;
+          const centerX = selectedImplant.pdfX * scale;
+          const centerY = selectedImplant.pdfY * scale;
           dragOffset.x = x - centerX;
           dragOffset.y = y - centerY;
         } else {
@@ -503,8 +537,10 @@
       if (e.touches.length === 1 && selectedImplant) {
         const touch = e.touches[0];
         const rect = implantCanvas.getBoundingClientRect();
-        const x = touch.clientX - rect.left, y = touch.clientY - rect.top;
-        const newCenterX = (x - dragOffset.x) / scale, newCenterY = (y - dragOffset.y) / scale;
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        const newCenterX = (x - dragOffset.x) / scale;
+        const newCenterY = (y - dragOffset.y) / scale;
         selectedImplant.pdfX = newCenterX;
         selectedImplant.pdfY = newCenterY;
         redrawImplants();
@@ -521,7 +557,8 @@
       implantCtx.clearRect(0, 0, implantCanvas.width, implantCanvas.height);
       implantObjects.forEach(function(implant) {
         const { pixelWidth, pixelHeight } = getImplantPixelDimensions(implant);
-        const centerX = implant.pdfX * scale, centerY = implant.pdfY * scale;
+        const centerX = implant.pdfX * scale;
+        const centerY = implant.pdfY * scale;
         implantCtx.save();
         implantCtx.translate(centerX, centerY);
         implantCtx.rotate((implant.rotation || 0) * Math.PI / 180);
@@ -535,7 +572,8 @@
       let pixelWidth, pixelHeight;
       const data = implantImages[implant.src];
       if (data && data.dims) {
-        const widthCm = data.dims.widthMm / 10, heightCm = data.dims.heightMm / 10;
+        const widthCm = data.dims.widthMm / 10;
+        const heightCm = data.dims.heightMm / 10;
         // Fixed size regardless of PDF zoom.
         pixelWidth = widthCm * calibrationFactor;
         pixelHeight = heightCm * calibrationFactor;
@@ -545,7 +583,8 @@
         pixelHeight = desiredHeightCm * calibrationFactor;
         pixelWidth = pixelHeight * aspectRatio;
       } else {
-        pixelWidth = 50; pixelHeight = 50;
+        pixelWidth = 50;
+        pixelHeight = 50;
       }
       return { pixelWidth, pixelHeight };
     }
@@ -556,8 +595,12 @@
       redrawImplants();
     });
     // In implant mode, disable pinch zoom on PDF container.
-    pdfContainer.addEventListener('touchstart', function(e) { if (implantMode && e.touches.length >= 2) { e.preventDefault(); } }, { passive: false });
-    pdfContainer.addEventListener('touchmove', function(e) { if (implantMode && e.touches.length >= 2) { e.preventDefault(); } }, { passive: false });
+    pdfContainer.addEventListener('touchstart', function(e) {
+      if (implantMode && e.touches.length >= 2) { e.preventDefault(); }
+    }, { passive: false });
+    pdfContainer.addEventListener('touchmove', function(e) {
+      if (implantMode && e.touches.length >= 2) { e.preventDefault(); }
+    }, { passive: false });
   </script>
 </body>
 </html>
