@@ -53,7 +53,7 @@
   <header>
     <h1>PDF Implant App</h1>
     <p>
-      Mode: Ruler (tap to measure) or Implant (add up to 3 implants, tap to select/move, adjust rotation with slider).
+      Mode: Ruler (tap to measure) or Implant (add up to 3 implants, tap to select/move, adjust rotation via slider).
     </p>
   </header>
 
@@ -105,14 +105,10 @@
   <!-- Include pdf.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.7.107/pdf.min.js"></script>
   <script>
-    /***********************
-     * PDF.js Setup
-     ***********************/
+    // --- PDF.js Setup ---
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.7.107/pdf.worker.min.js';
 
-    /***********************
-     * Implant List & Preloading Images
-     ***********************/
+    // --- Implant List & Preloading Images ---
     const implantList = [
       { src: 'res/3.3x10mm.svg',    name: '3.3 x 10 mm' },
       { src: 'res/3.3x11.5mm.svg',  name: '3.3 x 11.5 mm' },
@@ -154,7 +150,6 @@
         console.error("Error loading implant image:", item.src, e);
       };
     });
-    // Populate implant dropdown.
     const implantSelect = document.getElementById('implant-select');
     implantList.forEach(item => {
       const option = document.createElement('option');
@@ -165,9 +160,7 @@
     let currentImplantSrc = implantSelect.value;
     implantSelect.addEventListener('change', function() { currentImplantSrc = this.value; });
 
-    /***********************
-     * Global Variables & DOM References
-     ***********************/
+    // --- Global Variables & DOM References ---
     const fileInput = document.getElementById('file-input');
     const prevPageBtn = document.getElementById('prev-page');
     const nextPageBtn = document.getElementById('next-page');
@@ -192,34 +185,28 @@
     let pdfDoc = null, currentPageNum = 1, totalPages = 0, pdfPage = null;
     let scale = 1.0, pageViewport = null, currentScale = scale;
     let measurementMode = false, measurementPoints = [];
-    let implantMode = false, implantObjects = []; // Each: { pdfX, pdfY, rotation, src }
+    let implantMode = false, implantObjects = []; // Each implant: { pdfX, pdfY, rotation, src }
     let selectedImplant = null, dragOffset = { x: 0, y: 0 };
     let calibrationFactor = parseFloat(calibrationInput.value) || 28.346;
 
-    /***********************
-     * Mode Selection (Dropdown)
-     ***********************/
+    // --- Mode Selection ---
     modeSelectElem.addEventListener('change', function() {
-      const mode = modeSelectElem.value;
-      if (mode === 'ruler') {
-        measurementMode = true;
-        implantMode = false;
-        attachRulerEvents();
-        detachImplantEvents();
+      if (modeSelectElem.value === 'ruler') {
+        measurementMode = true; implantMode = false;
+        attachRulerEvents(); detachImplantEvents();
         overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
         measurementPoints = [];
         implantMenu.style.display = 'none';
         toggleImplantMenuBtn.style.display = 'none';
-      } else if (mode === 'implant') {
-        measurementMode = false;
-        implantMode = true;
-        attachImplantEvents();
-        detachRulerEvents();
+      } else {
+        measurementMode = false; implantMode = true;
+        attachImplantEvents(); detachRulerEvents();
         toggleImplantMenuBtn.style.display = 'inline-block';
       }
     });
     modeSelectElem.value = 'ruler';
     attachRulerEvents();
+
     function attachRulerEvents() {
       overlayCanvas.style.pointerEvents = 'auto';
       overlayCanvas.addEventListener('click', onOverlayClick);
@@ -244,33 +231,21 @@
       implantCanvas.removeEventListener('touchstart', onImplantTouchStart);
     }
     toggleImplantMenuBtn.addEventListener('click', function() {
-      if (implantMenu.style.display === 'none' || implantMenu.style.display === '') {
-        implantMenu.style.display = 'block';
-        toggleImplantMenuBtn.textContent = "Close Implant Menu";
-      } else {
-        implantMenu.style.display = 'none';
-        toggleImplantMenuBtn.textContent = "Open Implant Menu";
-      }
+      implantMenu.style.display = (implantMenu.style.display === 'none' || implantMenu.style.display === '') ? 'block' : 'none';
+      toggleImplantMenuBtn.textContent = (implantMenu.style.display === 'block') ? "Close Implant Menu" : "Open Implant Menu";
     });
-    // "Add Implant" button adds a new implant at the center.
     document.getElementById('add-implant').addEventListener('click', function() {
-      if (implantObjects.length >= 3) {
-        alert("Maximum of 3 implants allowed.");
-        return;
-      }
-      const centerX = implantCanvas.width / 2;
-      const centerY = implantCanvas.height / 2;
+      if (implantObjects.length >= 3) { alert("Maximum of 3 implants allowed."); return; }
+      const centerX = implantCanvas.width / 2, centerY = implantCanvas.height / 2;
       placeImplantAt(centerX, centerY);
       selectedImplant = implantObjects[implantObjects.length - 1];
-      // Set the slider to the implant's current rotation (which is 0 initially).
       rotateSlider.value = selectedImplant.rotation;
-      console.log("Implant added. Selected implant rotation:", selectedImplant.rotation);
+      console.log("Implant added; rotation:", selectedImplant.rotation);
     });
-    // Rotation slider updates the selected implant.
     rotateSlider.addEventListener('input', function() {
       if (selectedImplant) {
         let newRotation = parseFloat(rotateSlider.value);
-        console.log("Slider value:", newRotation);
+        console.log("Rotation slider value:", newRotation);
         selectedImplant.rotation = newRotation;
         redrawImplants();
       }
@@ -280,17 +255,12 @@
      ***********************/
     fileInput.addEventListener('change', function(e) {
       const file = e.target.files[0];
-      if (!file || file.type !== 'application/pdf') {
-        alert('Please upload a valid PDF file.');
-        return;
-      }
+      if (!file || file.type !== 'application/pdf') { alert('Please upload a valid PDF file.'); return; }
       const fileReader = new FileReader();
       fileReader.onload = function() {
         const typedarray = new Uint8Array(this.result);
         pdfjsLib.getDocument(typedarray).promise.then(function(pdf) {
-          pdfDoc = pdf;
-          totalPages = pdf.numPages;
-          currentPageNum = 1;
+          pdfDoc = pdf; totalPages = pdf.numPages; currentPageNum = 1;
           prevPageBtn.disabled = (currentPageNum === 1);
           nextPageBtn.disabled = (currentPageNum === totalPages);
           loadPage(currentPageNum);
@@ -308,14 +278,10 @@
     }
     function renderPage() {
       const viewport = pdfPage.getViewport({ scale: scale });
-      pageViewport = viewport;
-      currentScale = scale;
-      pdfCanvas.width = viewport.width;
-      pdfCanvas.height = viewport.height;
-      implantCanvas.width = viewport.width;
-      implantCanvas.height = viewport.height;
-      overlayCanvas.width = viewport.width;
-      overlayCanvas.height = viewport.height;
+      pageViewport = viewport; currentScale = scale;
+      pdfCanvas.width = viewport.width; pdfCanvas.height = viewport.height;
+      implantCanvas.width = viewport.width; implantCanvas.height = viewport.height;
+      overlayCanvas.width = viewport.width; overlayCanvas.height = viewport.height;
       pdfCtx.clearRect(0, 0, pdfCanvas.width, pdfCanvas.height);
       implantCtx.clearRect(0, 0, implantCanvas.width, implantCanvas.height);
       overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
@@ -324,15 +290,11 @@
     }
     prevPageBtn.addEventListener('click', function() {
       if (currentPageNum <= 1) return;
-      currentPageNum--;
-      loadPage(currentPageNum);
-      updatePageButtons();
+      currentPageNum--; loadPage(currentPageNum); updatePageButtons();
     });
     nextPageBtn.addEventListener('click', function() {
       if (currentPageNum >= totalPages) return;
-      currentPageNum++;
-      loadPage(currentPageNum);
-      updatePageButtons();
+      currentPageNum++; loadPage(currentPageNum); updatePageButtons();
     });
     function updatePageButtons() {
       prevPageBtn.disabled = (currentPageNum === 1);
@@ -341,12 +303,8 @@
       overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
       measurementResult.textContent = "";
     }
-    zoomInBtn.addEventListener('click', function() {
-      if (!implantMode) { scale *= 1.1; renderPage(); }
-    });
-    zoomOutBtn.addEventListener('click', function() {
-      if (!implantMode) { scale /= 1.1; renderPage(); }
-    });
+    zoomInBtn.addEventListener('click', function() { if (!implantMode) { scale *= 1.1; renderPage(); } });
+    zoomOutBtn.addEventListener('click', function() { if (!implantMode) { scale /= 1.1; renderPage(); } });
     setCalibrationBtn.addEventListener('click', function() {
       const value = parseFloat(calibrationInput.value);
       if (isNaN(value) || value <= 0) { alert('Please enter a valid calibration factor.'); return; }
@@ -359,15 +317,13 @@
      ***********************/
     function onOverlayClick(e) {
       const rect = overlayCanvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+      const x = e.clientX - rect.left, y = e.clientY - rect.top;
       processMeasurementPoint(x, y);
     }
     function onOverlayTouch(e) {
       const touch = e.changedTouches[0];
       const rect = overlayCanvas.getBoundingClientRect();
-      const x = touch.clientX - rect.left;
-      const y = touch.clientY - rect.top;
+      const x = touch.clientX - rect.left, y = touch.clientY - rect.top;
       processMeasurementPoint(x, y);
       e.preventDefault();
     }
@@ -413,7 +369,7 @@
       overlayCtx.fillText(distanceInCm.toFixed(2) + " cm", midX + 5, midY - 5);
     }
     /***********************
-     * Implant Mode
+     * Implant Mode (Slider Rotation Only)
      ***********************/
     function findImplantAt(canvasX, canvasY) {
       let bestHit = null, bestDistance = Infinity;
@@ -471,4 +427,88 @@
       redrawImplants();
     }
     function onImplantMouseUp(e) {
-      window.removeEventListener('mousemove', onImplantMouseMove
+      window.removeEventListener('mousemove', onImplantMouseMove);
+      window.removeEventListener('mouseup', onImplantMouseUp);
+      // Keep the implant selected so that the slider can adjust rotation.
+    }
+    // For touch, only single-touch drag is used.
+    function onImplantTouchStart(e) {
+      const rect = implantCanvas.getBoundingClientRect();
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        const x = touch.clientX - rect.left, y = touch.clientY - rect.top;
+        const hit = findImplantAt(x, y);
+        if (hit) {
+          selectedImplant = hit.implant;
+          const centerX = selectedImplant.pdfX * scale, centerY = selectedImplant.pdfY * scale;
+          dragOffset.x = x - centerX;
+          dragOffset.y = y - centerY;
+        } else {
+          selectedImplant = null;
+        }
+        implantCanvas.addEventListener('touchmove', onImplantTouchMove);
+        implantCanvas.addEventListener('touchend', onImplantTouchEnd);
+        e.preventDefault();
+      } else {
+        e.preventDefault();
+      }
+    }
+    function onImplantTouchMove(e) {
+      if (e.touches.length === 1 && selectedImplant) {
+        const touch = e.touches[0];
+        const rect = implantCanvas.getBoundingClientRect();
+        const x = touch.clientX - rect.left, y = touch.clientY - rect.top;
+        const newCenterX = (x - dragOffset.x) / scale, newCenterY = (y - dragOffset.y) / scale;
+        selectedImplant.pdfX = newCenterX;
+        selectedImplant.pdfY = newCenterY;
+        redrawImplants();
+        e.preventDefault();
+      }
+    }
+    function onImplantTouchEnd(e) {
+      implantCanvas.removeEventListener('touchmove', onImplantTouchMove);
+      implantCanvas.removeEventListener('touchend', onImplantTouchEnd);
+      e.preventDefault();
+    }
+    function redrawImplants() {
+      implantCtx.clearRect(0, 0, implantCanvas.width, implantCanvas.height);
+      implantObjects.forEach(function(implant) {
+        const { pixelWidth, pixelHeight } = getImplantPixelDimensions(implant);
+        const centerX = implant.pdfX * scale, centerY = implant.pdfY * scale;
+        implantCtx.save();
+        implantCtx.translate(centerX, centerY);
+        implantCtx.rotate((implant.rotation || 0) * Math.PI / 180);
+        if (implantImages[implant.src] && implantImages[implant.src].img.complete) {
+          implantCtx.drawImage(implantImages[implant.src].img, -pixelWidth/2, -pixelHeight/2, pixelWidth, pixelHeight);
+        }
+        implantCtx.restore();
+      });
+    }
+    function getImplantPixelDimensions(implant) {
+      let pixelWidth, pixelHeight;
+      const data = implantImages[implant.src];
+      if (data && data.dims) {
+        const widthCm = data.dims.widthMm / 10, heightCm = data.dims.heightMm / 10;
+        // Fixed size regardless of PDF zoom.
+        pixelWidth = widthCm * calibrationFactor;
+        pixelHeight = heightCm * calibrationFactor;
+      } else if (data && data.img) {
+        const desiredHeightCm = parseFloat(implantHeightInput.value) || 2;
+        const aspectRatio = (data.img.naturalWidth || 1) / (data.img.naturalHeight || 1);
+        pixelHeight = desiredHeightCm * calibrationFactor;
+        pixelWidth = pixelHeight * aspectRatio;
+      } else {
+        pixelWidth = 50; pixelHeight = 50;
+      }
+      return { pixelWidth, pixelHeight };
+    }
+    clearImplantsBtn.addEventListener('click', function() {
+      implantObjects = [];
+      redrawImplants();
+    });
+    // In implant mode, disable pinch zoom on PDF container.
+    pdfContainer.addEventListener('touchstart', function(e) { if (implantMode && e.touches.length >= 2) { e.preventDefault(); } }, { passive: false });
+    pdfContainer.addEventListener('touchmove', function(e) { if (implantMode && e.touches.length >= 2) { e.preventDefault(); } }, { passive: false });
+  </script>
+</body>
+</html>
