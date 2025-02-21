@@ -52,6 +52,11 @@
     #pdf-canvas { position: relative; z-index: 1; }
     #implant-canvas { position: absolute; top: 0; left: 0; z-index: 2; }
     #overlay-canvas { position: absolute; top: 0; left: 0; z-index: 3; }
+    /* Donation Section */
+    #donation {
+      text-align: center;
+      margin: 20px 0;
+    }
     /* Responsive adjustments */
     @media (max-width: 480px) {
       header h1 { font-size: 1.2em; }
@@ -110,10 +115,21 @@
     <canvas id="pdf-canvas"></canvas>
     <canvas id="implant-canvas"></canvas>
     <canvas id="overlay-canvas"></canvas>
-    <!-- Rotation Control (initially hidden) -->
+    <!-- Rotation Control (appears near the selected implant) -->
     <div id="rotation-control">
       <input type="range" id="rotate-slider" min="0" max="360" value="0">
     </div>
+  </div>
+
+  <!-- Donation Section -->
+  <div id="donation">
+    <h3>Support This Project</h3>
+    <form action="https://www.paypal.com/donate" method="post" target="_top">
+      <input type="hidden" name="hosted_button_id" value="YOUR_BUTTON_ID" />
+      <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif" 
+             border="0" name="submit" title="Donate with PayPal" alt="Donate with PayPal button" />
+      <img alt="" border="0" src="https://www.paypal.com/en_US/i/scr/pixel.gif" width="1" height="1" />
+    </form>
   </div>
 
   <!-- Include pdf.js -->
@@ -175,7 +191,7 @@
     let currentImplantSrc = implantSelect.value;
     implantSelect.addEventListener('change', function() { currentImplantSrc = this.value; });
 
-    // --- Global DOM References & Variables ---
+    // --- Global Variables & DOM References ---
     const fileInput = document.getElementById('file-input');
     const prevPageBtn = document.getElementById('prev-page');
     const nextPageBtn = document.getElementById('next-page');
@@ -271,13 +287,11 @@
         updateRotationControl();
       }
     });
-    // Update the rotation control position relative to the selected implant.
+    // Update the rotation control position near the selected implant.
     function updateRotationControl() {
       if (selectedImplant) {
-        // Compute implant's position in pdfContainer coordinates.
         const x = selectedImplant.pdfX * scale;
         const y = selectedImplant.pdfY * scale;
-        // Position the rotation control relative to the implant.
         rotationControl.style.left = (x + 10) + "px";
         rotationControl.style.top = (y - 30) + "px";
         rotationControl.style.display = "block";
@@ -293,9 +307,7 @@
       fileReader.onload = function() {
         const typedarray = new Uint8Array(this.result);
         pdfjsLib.getDocument(typedarray).promise.then(function(pdf) {
-          pdfDoc = pdf;
-          totalPages = pdf.numPages;
-          currentPageNum = 1;
+          pdfDoc = pdf; totalPages = pdf.numPages; currentPageNum = 1;
           prevPageBtn.disabled = (currentPageNum === 1);
           nextPageBtn.disabled = (currentPageNum === totalPages);
           loadPage(currentPageNum);
@@ -399,7 +411,7 @@
       overlayCtx.fillStyle = "black";
       overlayCtx.fillText(distanceInCm.toFixed(2) + " cm", midX + 5, midY - 5);
     }
-    // --- Implant Mode (Movement & Rotation via Slider Only) ---
+    // --- Implant Mode (Movement & Rotation via Slider) ---
     function findImplantAt(canvasX, canvasY) {
       let bestHit = null, bestDistance = Infinity;
       for (let i = 0; i < implantObjects.length; i++) {
@@ -463,7 +475,7 @@
     function onImplantMouseUp(e) {
       window.removeEventListener('mousemove', onImplantMouseMove);
       window.removeEventListener('mouseup', onImplantMouseUp);
-      // Keep the implant selected so the rotation control remains visible.
+      // Keep implant selected so rotation control remains visible.
     }
     function onImplantTouchStart(e) {
       const rect = implantCanvas.getBoundingClientRect();
@@ -524,7 +536,7 @@
       const data = implantImages[implant.src];
       if (data && data.dims) {
         const widthCm = data.dims.widthMm / 10, heightCm = data.dims.heightMm / 10;
-        // Fixed size: do not multiply by scale.
+        // Fixed size regardless of PDF zoom.
         pixelWidth = widthCm * calibrationFactor;
         pixelHeight = heightCm * calibrationFactor;
       } else if (data && data.img) {
@@ -543,7 +555,7 @@
       rotationControl.style.display = "none";
       redrawImplants();
     });
-    // Disable pinch zoom in implant mode.
+    // In implant mode, disable pinch zoom on PDF container.
     pdfContainer.addEventListener('touchstart', function(e) { if (implantMode && e.touches.length >= 2) { e.preventDefault(); } }, { passive: false });
     pdfContainer.addEventListener('touchmove', function(e) { if (implantMode && e.touches.length >= 2) { e.preventDefault(); } }, { passive: false });
   </script>
