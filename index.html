@@ -11,7 +11,7 @@
     body { font-family: Arial, sans-serif; background: #f8f8f8; color: #333; }
     header { background: #007ACC; color: #fff; padding: 10px; text-align: center; }
     header h1 { font-size: 1.4em; margin-bottom: 5px; }
-
+    
     /* Icon Bar (L-shape) in Upper Right */
     #icon-bar {
       position: fixed;
@@ -41,7 +41,7 @@
     #icon-bar button.active {
       color: #007ACC;
     }
-
+    
     /* Submenu Panels (Slide-out) */
     .submenu {
       position: fixed;
@@ -66,7 +66,7 @@
       border: 1px solid #ccc;
       border-radius: 4px;
     }
-
+    
     /* Zoom Status Indicator */
     #zoom-status {
       position: fixed;
@@ -79,7 +79,7 @@
       z-index: 300;
       display: none;
     }
-
+    
     /* PDF Container & Canvases */
     #pdf-container {
       position: relative;
@@ -91,7 +91,7 @@
     #pdf-canvas { position: relative; z-index: 1; }
     #implant-canvas { position: absolute; top: 0; left: 0; z-index: 2; }
     #overlay-canvas { position: absolute; top: 0; left: 0; z-index: 3; }
-
+    
     /* Dynamic Rotation Slider (appears near selected implant) */
     #rotation-control {
       position: absolute;
@@ -104,7 +104,7 @@
       display: none;
     }
     #rotation-control input[type="range"] { width: 100px; }
-
+    
     /* Donation Section (fixed in Lower Left) */
     #donation {
       position: fixed;
@@ -113,7 +113,7 @@
       z-index: 300;
       text-align: center;
     }
-
+    
     /* Responsive adjustments */
     @media (max-width: 480px) {
       #icon-bar button { font-size: 1.2em; }
@@ -124,6 +124,9 @@
 </head>
 <body>
 
+  <!-- Hidden File Input -->
+  <input type="file" id="file-input" accept="application/pdf" style="display: none;">
+  
   <header>
     <h1>PDF Implant App</h1>
     <p>Use the icons in the upper–right to control the app.</p>
@@ -184,7 +187,7 @@
     </form>
   </div>
 
-  <!-- Include pdf.js once at the end -->
+  <!-- Include pdf.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.7.107/pdf.min.js"></script>
   <script>
     /*************** PDF.js Setup ***************/
@@ -275,15 +278,15 @@
     let zoomEnabled = false, zoomTimeout = null;
 
     /*************** Icon Bar Event Listeners ***************/
-    // Upload Button
+    // Upload Button: open file dialog.
     uploadBtn.addEventListener('click', function() {
       fileInput.click();
     });
-    // Calibration Button: toggle calibration menu
+    // Calibration Button: toggle calibration menu.
     calibrationBtn.addEventListener('click', function() {
       calibrationMenu.style.display = (calibrationMenu.style.display === 'block') ? 'none' : 'block';
     });
-    // Ruler Button: activate ruler mode
+    // Ruler Button: activate ruler mode.
     rulerBtn.addEventListener('click', function() {
       rulerBtn.classList.add('active');
       implantBtn.classList.remove('active');
@@ -296,7 +299,7 @@
       document.getElementById('implant-menu').style.display = 'none';
       rotationControl.style.display = 'none';
     });
-    // Implant Button: activate implant mode
+    // Implant Button: activate implant mode.
     implantBtn.addEventListener('click', function() {
       implantBtn.classList.add('active');
       rulerBtn.classList.remove('active');
@@ -307,7 +310,7 @@
       attachImplantEvents();
       document.getElementById('implant-menu').style.display = 'block';
     });
-    // Zoom Button: enable pinch zoom temporarily
+    // Zoom Button: enable pinch zoom temporarily.
     zoomBtn.addEventListener('click', function() {
       if (!zoomEnabled) {
         zoomEnabled = true;
@@ -597,11 +600,13 @@
       if (implantMode && e.touches.length >= 2) { e.preventDefault(); }
     }, { passive: false });
 
-    // Dynamic Rotation Slider: update its position near the selected implant.
+    /*************** Dynamic Rotation Slider ***************/
+    // Update the dynamic rotation slider's position near the selected implant.
     function updateRotationControl() {
       if (selectedImplant) {
         const x = selectedImplant.pdfX * scale;
         const y = selectedImplant.pdfY * scale;
+        // Position 10px right and 30px above.
         rotationControl.style.left = (x + 10) + "px";
         rotationControl.style.top = (y - 30) + "px";
         rotationControl.style.display = "block";
@@ -609,7 +614,7 @@
         rotationControl.style.display = "none";
       }
     }
-    // Dynamic Rotation Slider: update implant rotation on input.
+    // Update selected implant rotation when dynamic slider changes.
     rotateSliderDynamic.addEventListener('input', function() {
       if (selectedImplant) {
         let newRotation = parseFloat(rotateSliderDynamic.value);
