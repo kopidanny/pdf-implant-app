@@ -11,7 +11,7 @@
     body { font-family: Arial, sans-serif; background: #f8f8f8; color: #333; }
     header { background: #007ACC; color: #fff; padding: 10px; text-align: center; }
     header h1 { font-size: 1.4em; margin-bottom: 5px; }
-    
+
     /* Icon Bar (L-shape) in Upper Right */
     #icon-bar {
       position: fixed;
@@ -41,7 +41,7 @@
     #icon-bar button.active {
       color: #007ACC;
     }
-    
+
     /* Submenu Panels (Slide-out) */
     .submenu {
       position: fixed;
@@ -66,7 +66,7 @@
       border: 1px solid #ccc;
       border-radius: 4px;
     }
-    
+
     /* Zoom Status Indicator */
     #zoom-status {
       position: fixed;
@@ -79,7 +79,7 @@
       z-index: 300;
       display: none;
     }
-    
+
     /* PDF Container & Canvases */
     #pdf-container {
       position: relative;
@@ -91,7 +91,7 @@
     #pdf-canvas { position: relative; z-index: 1; }
     #implant-canvas { position: absolute; top: 0; left: 0; z-index: 2; }
     #overlay-canvas { position: absolute; top: 0; left: 0; z-index: 3; }
-    
+
     /* Dynamic Rotation Slider (appears near selected implant) */
     #rotation-control {
       position: absolute;
@@ -103,10 +103,8 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.3);
       display: none;
     }
-    #rotation-control input[type="range"] {
-      width: 100px;
-    }
-    
+    #rotation-control input[type="range"] { width: 100px; }
+
     /* Donation Section (fixed in Lower Left) */
     #donation {
       position: fixed;
@@ -115,12 +113,12 @@
       z-index: 300;
       text-align: center;
     }
-    
+
     /* Responsive adjustments */
     @media (max-width: 480px) {
       #icon-bar button { font-size: 1.2em; }
       .submenu { font-size: 0.8em; }
-      #donation { font-size: 0.8em; }
+      #zoom-status, #donation { font-size: 0.8em; }
     }
   </style>
 </head>
@@ -175,7 +173,7 @@
     <input type="range" id="rotate-slider-dynamic" min="0" max="360" value="0">
   </div>
 
-  <!-- Donation Section (PayPal button fixed at lower left) -->
+  <!-- Donation Section (PayPal button fixed in Lower Left) -->
   <div id="donation">
     <h3>Support This Project</h3>
     <form action="https://www.paypal.com/donate" method="post" target="_top">
@@ -186,7 +184,7 @@
     </form>
   </div>
 
-  <!-- Include pdf.js -->
+  <!-- Include pdf.js once at the end -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.7.107/pdf.min.js"></script>
   <script>
     /*************** PDF.js Setup ***************/
@@ -277,15 +275,15 @@
     let zoomEnabled = false, zoomTimeout = null;
 
     /*************** Icon Bar Event Listeners ***************/
-    // Upload Button: open file dialog.
+    // Upload Button
     uploadBtn.addEventListener('click', function() {
       fileInput.click();
     });
-    // Calibration Button: toggle calibration menu.
+    // Calibration Button: toggle calibration menu
     calibrationBtn.addEventListener('click', function() {
       calibrationMenu.style.display = (calibrationMenu.style.display === 'block') ? 'none' : 'block';
     });
-    // Ruler Button: activate ruler mode.
+    // Ruler Button: activate ruler mode
     rulerBtn.addEventListener('click', function() {
       rulerBtn.classList.add('active');
       implantBtn.classList.remove('active');
@@ -298,7 +296,7 @@
       document.getElementById('implant-menu').style.display = 'none';
       rotationControl.style.display = 'none';
     });
-    // Implant Button: activate implant mode.
+    // Implant Button: activate implant mode
     implantBtn.addEventListener('click', function() {
       implantBtn.classList.add('active');
       rulerBtn.classList.remove('active');
@@ -309,7 +307,7 @@
       attachImplantEvents();
       document.getElementById('implant-menu').style.display = 'block';
     });
-    // Zoom Button: enable pinch zoom for 5 seconds.
+    // Zoom Button: enable pinch zoom temporarily
     zoomBtn.addEventListener('click', function() {
       if (!zoomEnabled) {
         zoomEnabled = true;
@@ -572,7 +570,6 @@
       if (data && data.dims) {
         const widthCm = data.dims.widthMm / 10;
         const heightCm = data.dims.heightMm / 10;
-        // Fixed size regardless of PDF zoom.
         pixelWidth = widthCm * calibrationFactor;
         pixelHeight = heightCm * calibrationFactor;
       } else if (data && data.img) {
@@ -599,6 +596,28 @@
     pdfContainer.addEventListener('touchmove', function(e) {
       if (implantMode && e.touches.length >= 2) { e.preventDefault(); }
     }, { passive: false });
+
+    // Dynamic Rotation Slider: update its position near the selected implant.
+    function updateRotationControl() {
+      if (selectedImplant) {
+        const x = selectedImplant.pdfX * scale;
+        const y = selectedImplant.pdfY * scale;
+        rotationControl.style.left = (x + 10) + "px";
+        rotationControl.style.top = (y - 30) + "px";
+        rotationControl.style.display = "block";
+      } else {
+        rotationControl.style.display = "none";
+      }
+    }
+    // Dynamic Rotation Slider: update implant rotation on input.
+    rotateSliderDynamic.addEventListener('input', function() {
+      if (selectedImplant) {
+        let newRotation = parseFloat(rotateSliderDynamic.value);
+        selectedImplant.rotation = newRotation;
+        redrawImplants();
+        updateRotationControl();
+      }
+    });
   </script>
 </body>
 </html>
