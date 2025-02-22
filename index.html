@@ -12,7 +12,7 @@
     header { background: #007ACC; color: #fff; padding: 10px; text-align: center; }
     header h1 { font-size: 1.4em; margin-bottom: 5px; }
     
-    /* Icon Bar in Upper Right (L-shape) */
+    /* Icon Bar (L-shape) in Upper Right */
     #icon-bar {
       position: fixed;
       top: 10px;
@@ -84,7 +84,7 @@
     #pdf-container {
       position: relative;
       background: #fff;
-      margin: 60px auto 60px auto; /* leave space for icon bar and donation button */
+      margin: 60px auto 60px auto;  /* leave space for icon bar and donation button */
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
       max-width: 100%;
     }
@@ -103,9 +103,11 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.3);
       display: none;
     }
-    #rotation-control input[type="range"] { width: 100px; }
+    #rotation-control input[type="range"] {
+      width: 100px;
+    }
     
-    /* Donation Section (fixed in lower left) */
+    /* Donation Section (fixed in Lower Left) */
     #donation {
       position: fixed;
       bottom: 10px;
@@ -142,7 +144,7 @@
     </div>
   </div>
 
-  <!-- Submenus -->
+  <!-- Submenu Panels -->
   <div id="implant-menu" class="submenu">
     <p><strong>Implant Options</strong></p>
     <label for="implant-select">Select Implant:</label>
@@ -177,7 +179,7 @@
   <div id="donation">
     <h3>Support This Project</h3>
     <form action="https://www.paypal.com/donate" method="post" target="_top">
-      <input type="hidden" name="hosted_button_id" value="5RKBDCQS2MCU2" />
+      <input type="hidden" name="hosted_button_id" value="YOUR_BUTTON_ID" />
       <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif" 
              border="0" name="submit" title="Donate with PayPal" alt="Donate with PayPal button" />
       <img alt="" border="0" src="https://www.paypal.com/en_US/i/scr/pixel.gif" width="1" height="1" />
@@ -275,19 +277,15 @@
     let zoomEnabled = false, zoomTimeout = null;
 
     /*************** Icon Bar Event Listeners ***************/
-    // Upload button: open file selection dialog.
+    // Upload Button: open file dialog.
     uploadBtn.addEventListener('click', function() {
       fileInput.click();
     });
-    // Calibration button: toggle calibration menu.
+    // Calibration Button: toggle calibration menu.
     calibrationBtn.addEventListener('click', function() {
-      if (calibrationMenu.style.display === 'block') {
-        calibrationMenu.style.display = 'none';
-      } else {
-        calibrationMenu.style.display = 'block';
-      }
+      calibrationMenu.style.display = (calibrationMenu.style.display === 'block') ? 'none' : 'block';
     });
-    // Ruler button: activate ruler mode.
+    // Ruler Button: activate ruler mode.
     rulerBtn.addEventListener('click', function() {
       rulerBtn.classList.add('active');
       implantBtn.classList.remove('active');
@@ -300,7 +298,7 @@
       document.getElementById('implant-menu').style.display = 'none';
       rotationControl.style.display = 'none';
     });
-    // Implant button: activate implant mode.
+    // Implant Button: activate implant mode.
     implantBtn.addEventListener('click', function() {
       implantBtn.classList.add('active');
       rulerBtn.classList.remove('active');
@@ -311,7 +309,7 @@
       attachImplantEvents();
       document.getElementById('implant-menu').style.display = 'block';
     });
-    // Zoom button: enable pinch-to-zoom for 5 seconds.
+    // Zoom Button: enable pinch zoom for 5 seconds.
     zoomBtn.addEventListener('click', function() {
       if (!zoomEnabled) {
         zoomEnabled = true;
@@ -325,7 +323,6 @@
     });
 
     /*************** Calibration Menu Logic ***************/
-    // set-calibration button inside calibrationMenu.
     const setCalibrationBtn = document.getElementById('set-calibration');
     setCalibrationBtn.addEventListener('click', function() {
       const value = parseFloat(document.getElementById('calibration-factor').value);
@@ -437,7 +434,7 @@
       overlayCtx.fillText(distanceInCm.toFixed(2) + " cm", (p1.x+p2.x)/2 + 5, (p1.y+p2.y)/2 - 5);
     }
 
-    /*************** Implant Mode (Movement & Rotation) ***************/
+    /*************** Implant Mode (Movement & Dynamic Rotation) ***************/
     function findImplantAt(canvasX, canvasY) {
       let bestHit = null, bestDistance = Infinity;
       for (let i = 0; i < implantObjects.length; i++) {
@@ -470,7 +467,6 @@
       const hit = findImplantAt(x, y);
       if (hit) {
         selectedImplant = hit.implant;
-        // Set dynamic rotation slider value and position it near the implant.
         rotateSliderDynamic.value = selectedImplant.rotation;
         updateRotationControl();
       } else {
